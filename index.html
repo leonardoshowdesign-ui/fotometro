@@ -744,25 +744,31 @@ function medidaQuadro(){const v=vivo.v;desenharSpot(v,v.videoWidth,v.videoHeight
   grade.length=0;for(let i=0;i<md.length;i+=16)grade.push(Ym(i));
   const qm=qs.map((s,k)=>s/Math.max(1,qn[k]));sp/=ns;an/=Math.max(1,na);
   return{sp,an,cantos,clip:clip/ns,unif:Math.max(...qm)/Math.max(1e-4,Math.min(...qm)),grade}}
-function quadro(){if(!vivo||!vivo.v.videoWidth)return;const m=medidaQuadro();let msg='',ok=false;
+// avalia um quadro; "frouxo" afrouxa os limites depois que a contagem começou, para tremidinhas não zerarem tudo
+function avaliar(m,mov,frouxo){const U=frouxo?1.55:1.35,UD=frouxo?1.45:1.3,A=frouxo?0.32:0.22,MV=frouxo?0.16:0.08;
+  if(m.sp<0.015)return'Está escuro. Confira se o aparelho está aceso.';
+  if(m.clip>(frouxo?0.1:0.05))return ref==='difusor'?'Está estourando. Afaste-se um pouco do aparelho.':'Está estourando. Dê um passo para trás.';
+  if(ref==='difusor'){if(m.unif>UD)return'Encoste bem o difusor e aponte direto para o aparelho.';return mov>MV?'Fique parado.':''}
+  if(m.unif>U)return'Enquadre o '+(ref==='cinza'?'cartão':'papel')+' no círculo, sem sombra.';
+  if(Math.abs(m.an/m.sp-1)>A)return'Chegue mais perto.';
+  if(Math.abs(m.cantos/m.sp-1)<0.08)return'Afaste um pouco, você pode estar fazendo sombra.';
+  return mov>MV?'Fique parado.':''}
+function quadro(){if(!vivo||!vivo.v.videoWidth)return;const m=medidaQuadro(),agora=performance.now();
   let mov=0;if(vivo.ant){for(let i=0;i<m.grade.length;i++)mov+=Math.abs(m.grade[i]-vivo.ant[i])/(vivo.ant[i]+0.02);mov/=m.grade.length}vivo.ant=m.grade;
-  if(m.sp<0.015)msg='Está escuro. Confira se o aparelho está aceso.';
-  else if(m.clip>0.05)msg=ref==='difusor'?'Está estourando. Afaste-se um pouco do aparelho.':'Está estourando. Dê um passo para trás.';
-  else if(ref==='difusor'){if(m.unif>1.3)msg='Encoste bem o difusor e aponte direto para o aparelho.';else if(mov>0.06)msg='Fique parado.';else ok=true}
-  else if(m.unif>1.35)msg='Enquadre o '+(ref==='cinza'?'cartão':'papel')+' no círculo, sem sombra.';
-  else if(Math.abs(m.an/m.sp-1)>0.22)msg='Chegue mais perto.';
-  else if(Math.abs(m.cantos/m.sp-1)<0.08)msg='Afaste um pouco, você pode estar fazendo sombra.';
-  else if(mov>0.06)msg='Fique parado.';else ok=true;
-  const agora=performance.now();
-  if(ok){if(!vivo.okDesde)vivo.okDesde=agora;const falta=3-Math.floor((agora-vivo.okDesde)/1000);
+  vivo.mov=vivo.mov==null?mov:vivo.mov*0.6+mov*0.4;
+  const msg=avaliar(m,vivo.mov,!!vivo.inicio);
+  if(!msg){vivo.ruimDesde=0;if(!vivo.okDesde)vivo.okDesde=agora;if(!vivo.inicio&&agora-vivo.okDesde>400)vivo.inicio=agora}
+  else{vivo.okDesde=0;if(vivo.inicio){if(!vivo.ruimDesde)vivo.ruimDesde=agora;if(agora-vivo.ruimDesde>900){vivo.inicio=0;vivo.ruimDesde=0}}}
+  if(vivo.inicio){const falta=3-Math.floor((agora-vivo.inicio)/1000);
     if(falta<=0){disparar();return}
     if($('vConta').textContent!==String(falta)){$('vConta').textContent=falta;falar(String(falta))}
-    $('vMsg').textContent='Perfeito, fique parado.';$('vivo').classList.add('pronto')}
-  else{vivo.okDesde=0;$('vConta').textContent='';$('vivo').classList.remove('pronto');$('vMsg').textContent=msg;
-    if(msg!==vivo.ultimaFala&&agora-vivo.tFala>2200){vivo.ultimaFala=msg;vivo.tFala=agora;falar(msg)}}}
+    $('vMsg').textContent='Perfeito, fique parado.';$('vivo').classList.add('pronto');return}
+  $('vConta').textContent='';$('vivo').classList.remove('pronto');
+  if(msg){$('vMsg').textContent=msg;if(msg!==vivo.ultimaFala&&agora-vivo.tFala>2200){vivo.ultimaFala=msg;vivo.tFala=agora;falar(msg)}}
+  else $('vMsg').textContent='Isso, segure assim...'}
 async function disparar(){if(!vivo)return;clearInterval(vivo.timer);$('vConta').textContent='';$('vMsg').textContent='Medindo...';
   const track=vivo.st.getVideoTracks()[0];let feito=false;
-  if(window.ImageCapture){try{const fr=fracVivo(),blob=await new ImageCapture(track).takePhoto();fecharVivo();falar('Pronto.');await processarArquivo(blob,null,fr);feito=true}catch(e){}}
+  if(window.ImageCapture){try{const fr=fracVivo(),blob=await Promise.race([new ImageCapture(track).takePhoto(),new Promise((_,rej)=>setTimeout(()=>rej('tempo'),3500))]);fecharVivo();falar('Pronto.');await processarArquivo(blob,null,fr);feito=true}catch(e){}}
   if(!feito&&vivo){medidaQuadro();let ex=null;try{const s=track.getSettings();if(s.iso&&s.exposureTime&&isoMan.N)ex={iso:s.iso,t:s.exposureTime/10000,N:+isoMan.N}}catch(e){}
     fecharVivo();falar('Pronto.');concluir(analisar(ex||exifManual()))}}
 
