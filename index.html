@@ -491,7 +491,7 @@ body.comGuia .app{padding-bottom:260px}
 <script>
 (()=>{
 const $=id=>document.getElementById(id);
-const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const store={get(k,d){try{const v=localStorage.getItem(k);if(!v)return d;const x=JSON.parse(v);if(d!=null&&(typeof x!==typeof d||Array.isArray(x)!==Array.isArray(d)||x===null))return d;return x}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
 const nf=(n,d=0)=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
 const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
 const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
@@ -615,7 +615,7 @@ function readExif(buf){try{const dv=new DataView(buf);if(dv.getUint16(0)!==0xFFD
 
 let cal=store.get('fot.cal',{mired:0,lux:1});
 // fator de lux por referência; o difusor só mede lux depois de calibrado
-if(!cal.ref)cal.ref={cinza:cal.lux||1,sulfite:1,difusor:null};
+if(!cal.ref||typeof cal.ref!=='object')cal.ref={cinza:cal.lux||1,sulfite:1,difusor:null};if(!isFinite(cal.mired))cal.mired=0;
 const REFS={cinza:{nome:'cartão cinza',o:'o cartão',da:'do cartão',rho:0.18,guia:'Segure o cartão na posição do artista, virado para os aparelhos, e fotografe com a câmera traseira enchendo o círculo central, sem fazer sombra nele.'},
   sulfite:{nome:'folha branca',o:'a folha',da:'da folha',rho:0.87,guia:'Use folha branca comum, não reciclada. Segure na posição do artista, virada para os aparelhos, e fotografe com a câmera traseira enchendo o círculo, sem fazer sombra. O reflexo varia um pouco por marca; com luxímetro, calibre uma vez em Calibrar o celular, no fim da aba Aferir.'},
   difusor:{nome:'difusor',rho:null,guia:'Encoste um difusor branco translúcido (meia bolinha de pingue-pongue, copinho branco) na lente principal da câmera traseira. Fique na posição do artista com a traseira apontada para os aparelhos e a tela virada para você.'}};
@@ -849,9 +849,11 @@ if(window.claude&&window.claude.use){
 }
 
 /* ---------- estado ---------- */
-const S=Object.assign({fx:'rivale',qtd:12,fid:101,alt:7,dist:6,prof:2,larg:12,kAlvo:5600,luxAlvo:1200,pCor:21,pDim:21,atr:{},sis:{}},store.get('fot.v3',{}));
+const S_PADRAO={fx:'rivale',qtd:12,fid:101,alt:7,dist:6,prof:2,larg:12,kAlvo:5600,luxAlvo:1200,pCor:21,pDim:21,atr:{},sis:{}};
+const S=Object.assign({},S_PADRAO,store.get('fot.v3',{}));
+Object.keys(S_PADRAO).forEach(k=>{const d=S_PADRAO[k];if(typeof d==='number'&&!isFinite(+S[k]))S[k]=d;else if(typeof d==='number')S[k]=+S[k];if(typeof d==='object'&&(typeof S[k]!=='object'||!S[k]))S[k]={}});if(typeof S.fx!=='string')S.fx=S_PADRAO.fx;
 S.atr=Object.assign({},ATR_PADRAO,S.atr||{});
-let plano=null,ajuste=store.get('fot.ajuste3',null),medidas=store.get('fot.medidas3',{}),sel=S.fx;
+let plano=null,ajuste=(a=>Array.isArray(a)&&a.every(x=>x&&isFinite(x.m)&&isFinite(x.dim))?a:null)(store.get('fot.ajuste3',null)),medidas=store.get('fot.medidas3',{}),sel=S.fx;
 const campos=['qtd','fid','alt','dist','prof','larg','luxAlvo','pCor','pDim'];
 const marcas=()=>[...new Set(todos().map(f=>f.marca))].sort((a,b)=>a.localeCompare(b,'pt'));
 function preencherModelos(marca){$('fx').innerHTML=todos().filter(f=>f.marca===marca).sort((a,b)=>a.modelo.localeCompare(b.modelo,'pt')).map(f=>`<option value="${esc(f.id)}">${esc(f.modelo)}${f.custom?' (seu)':''}</option>`).join('')}
@@ -897,6 +899,9 @@ function calcular(){
   setLuz(S.kAlvo);$('resumoTopo').textContent=`${S.qtd} × ${f.marca} ${f.modelo}, ${nf(S.kAlvo)} K`;
 
   const av=[];
+  if(S.alt<=1.8)av.push(['fo','A vara está na altura do rosto ou abaixo dela. Confira a altura: ela é medida do chão do palco até a vara.']);
+  if(S.dist+S.prof<=0.3)av.push(['fo','Com essas distâncias o aparelho fica em cima ou atrás do artista, e isso vira luz de topo ou contraluz, não luz de rosto. Confira a distância até a boca de cena.']);
+  if(S.larg<=0)av.push(['fo','Informe a largura do palco que precisa de luz.']);
   if(dim==null)av.push(['fo',f.semZoom?'O fabricante não informa o zoom deste aparelho. Na aba Aparelhos, copie como base e informe o zoom e uma medida de luz.':'Sem lúmens nem medição de luz para este aparelho. Edite o cadastro na aba Aparelhos.']);
   else if(dim>100)av.push(['fo',`Não chega em ${nf(S.luxAlvo)} lux: no máximo dá ${nf(E)} lux. Aproxime a vara, feche o zoom ou some aparelhos.`]);
   else if(dim<15)av.push(['at',`Vai trabalhar com ${nf(dim)}% de intensidade. Confira se a curva de dimmer não fica instável tão baixo.`]);
@@ -916,7 +921,7 @@ function calcular(){
   desenharCorte();gerarMesa();renderPontos();
 }
 function desenharCorte(){const p=plano,W=360,H=150,pad=18;
-  const sc=Math.min((W-2*pad)/(S.dist+S.prof+2),(H-2*pad)/(Math.max(S.alt,3)+0.6)),X=m=>pad+m*sc,Y=m=>H-pad-m*sc;
+  const x0=Math.min(0,S.dist,S.dist+S.prof)-0.5,x1=Math.max(0,S.dist,S.dist+S.prof)+1.5,sc=Math.min((W-2*pad)/(x1-x0),(H-2*pad)/(Math.max(S.alt,3)+0.6)),X=m=>pad+(m-x0)*sc,Y=m=>H-pad-m*sc;
   const vx=X(0),vy=Y(S.alt),bx=X(S.dist),ax=X(S.dist+S.prof),ay=Y(1.6),half=rad(p.zoom/2),dirA=Math.atan2(ay-vy,ax-vx),L=p.tiro*sc*1.08;
   const p1=[vx+Math.cos(dirA-half)*L,vy+Math.sin(dirA-half)*L],p2=[vx+Math.cos(dirA+half)*L,vy+Math.sin(dirA+half)*L];
   $('corte').innerHTML=`<rect x="0" y="0" width="${W}" height="${H}" fill="var(--coxia)"/>
@@ -952,6 +957,7 @@ function renderAparelhos(){
   const passa=f=>(!q||norm(f.marca+' '+f.modelo).includes(q))&&(!fFab||f.marca===fFab)&&
     (!fCor||(fCor==='cto'?['cto','ctb'].includes(f.cor):fCor==='rgb'?['rgb','rgbw'].includes(f.cor):f.cor===fCor))&&
     (!fOrig||(fOrig==='fab'?!f.custom:fOrig==='meus'?f.custom:fOrig==='perfil'?temPerfil(f):(f.lm||(f.pts&&f.pts.length))&&!f.semZoom));
+  [...$('fCor').options].forEach(o=>{if(!o.value)return;o.dataset.rot=o.dataset.rot||o.textContent;const n=todos().filter(f=>o.value==='cto'?['cto','ctb'].includes(f.cor):o.value==='rgb'?['rgb','rgbw'].includes(f.cor):f.cor===o.value).length;o.textContent=`${o.dataset.rot} (${n})`;o.disabled=!n&&$('fCor').value!==o.value});
   const lista=todos().filter(passa),filtrando=!!(q||fFab||fCor||fOrig);
   $('fConta').textContent=filtrando?(lista.length?`${lista.length} de ${todos().length} aparelhos. Toque no modelo para abrir os dados e o perfil de cor.`:'Nenhum aparelho com esses filtros. Limpe a busca ou cadastre o aparelho.'):`${todos().length} aparelhos de ${marcas().length} fabricantes. Toque no fabricante para ver os modelos e no modelo para abrir os dados e o perfil de cor.`;
   const grupos={};lista.forEach(f=>(grupos[f.marca]=grupos[f.marca]||[]).push(f));
@@ -964,7 +970,7 @@ function renderAparelhos(){
     <div class="linha2 nota">${f.pot?`<span>${nf(f.pot)} W</span> `:''}<span>Zoom ${f.semZoom?'não informado':nf(f.zoom[0],1)+' a '+nf(f.zoom[1],1)+'°'}</span> ${f.lm?`<span>${nf(f.lm)} lm</span> `:''}<span>${textoCor(f)}</span></div>
     ${f.obs?`<p class="nota">${esc(f.obs)}</p>`:''}
     <div class="acoes"><button type="button" id="btnUsar" class="primario">Usar no Montar</button>${f.custom?'<button type="button" id="btnEditar">Editar</button><button type="button" id="btnApagar">Apagar</button>':'<button type="button" id="btnCopiarFx">Copiar como base</button>'}</div>`;
-  $('btnUsar').onclick=()=>{S.fx=f.id;salvarS();preencherSelect();ficha(f);medidas={};ajuste=null;calcular();$('t-montar').click()};
+  $('btnUsar').onclick=()=>{S.fx=f.id;salvarS();preencherSelect();ficha(f);medidas={};store.set('fot.medidas3',medidas);ajuste=null;store.set('fot.ajuste3',null);calcular();$('t-montar').click()};
   if($('btnEditar'))$('btnEditar').onclick=()=>abrirCad(f);
   if($('btnApagar'))$('btnApagar').onclick=async e=>{const b=e.currentTarget;if(b.dataset.conf!=='1'){b.dataset.conf='1';b.textContent='Toque de novo para apagar';return}
     await apagarAparelho(f.id).catch(()=>{});sel=FABRICA[0].id;if(S.fx===f.id){S.fx=sel;salvarS()}atualizarTudo()};
@@ -977,15 +983,16 @@ function abrirCad(f){editando=f;$('fCad').hidden=false;$('cadTitulo').textConten
   v('cMlux','');v('cMdist','');v('cMzoom','');$('msgCad').textContent='';$('fCad').scrollIntoView({behavior:'smooth',block:'start'})}
 $('btnNovo').onclick=()=>abrirCad(null);
 $('btnCancelaCad').onclick=()=>{$('fCad').hidden=true;editando=null};
-$('fCad').addEventListener('submit',async e=>{e.preventDefault();
+$('fCad').addEventListener('submit',async e=>{e.preventDefault();$('msgCad').textContent='';
   const n=id=>{const x=parseFloat($(id).value);return isFinite(x)?x:null};
   const marca=$('cMarca').value.trim(),modelo=$('cModelo').value.trim();let zmin=n('cZmin'),zmax=n('cZmax');
   if(!marca||!modelo){$('msgCad').textContent='Informe fabricante e modelo.';return}
   if(zmin==null&&zmax==null){$('msgCad').textContent='Informe o zoom. Se o ângulo for fixo, use o mesmo valor nos dois campos.';return}
   if(zmin==null)zmin=zmax;if(zmax==null)zmax=zmin;if(zmin>zmax)[zmin,zmax]=[zmax,zmin];
+  if(zmin<0.5||zmax>120){$('msgCad').textContent='O zoom precisa ficar entre 0,5° e 120°. Confira a ficha do aparelho.';return}
   const lux=n('cMlux'),d=n('cMdist'),za=n('cMzoom'),lm=n('cLm');
   const pts=(editando&&editando.custom&&editando.pts)?editando.pts.slice():[];
-  if(lux&&d&&za)pts.push([clamp(za,zmin,zmax),lux*d*d]);
+  if(lux&&d&&za){const a=clamp(za,zmin,zmax);for(let i=pts.length-1;i>=0;i--)if(Math.abs(pts[i][0]-a)<0.5)pts.splice(i,1);pts.push([a,lux*d*d]);pts.sort((x,y)=>x[0]-y[0])}
   if(!lm&&!pts.length){$('msgCad').textContent='Informe os lúmens ou uma medição de luz. Sem isso o app não calcula a intensidade.';return}
   const id=(editando&&editando.custom&&editando.id)||('c-'+Date.now().toString(36));
   const f={id,custom:true,marca,modelo,pot:n('cPot'),lm,zoom:[zmin,zmax],pts,cor:$('cCor').value,kNat:n('cKnat'),kMin:n('cKmin'),kMax:n('cKmax'),cri:null,
@@ -1130,7 +1137,7 @@ function renderPontos(){if(!plano)return;
       $('selo').textContent=`${pt.nome}: ${o.lux!=null?nf(o.lux)+' lux, ':''}${nf(Math.round(o.T/50)*50)} K`;renderPontos()})});
   const out=[];
   centros.forEach(p=>{const m=medidas[p.k],i=p.fx,cur=v[i],d=dev(m),txt=[];
-    if(Math.abs(d)>tol){const nd=clamp(cur.dim/Math.pow(2,d),0,100);txt.push(`intensidade de ${nf(cur.dim)}% para ${nf(nd)}%${nd>=100&&d<0?' (já no máximo, falta luz)':''}`)}
+    if(Math.abs(d)>tol){const nd=clamp(cur.dim/Math.pow(2,d),0,100);txt.push(cur.dim>=99.5&&d<0?`já está a 100% e ainda falta ${nf(-d,1)} stop de luz: aproxime a vara, feche o zoom ou some aparelhos`:`intensidade de ${nf(cur.dim)}% para ${nf(nd)}%${nd>=100&&d<0?' (vai ao máximo e ainda pode faltar luz)':''}`)}
     const dm=1e6/S.kAlvo-1e6/m.T;
     if(Math.abs(dm)>tolK){const mAtual=ajuste&&ajuste[i]?ajuste[i].m:1e6/S.kAlvo,nova=resolverCor(f,1e6/(mAtual+dm));
       if(nova&&cur.cor)txt.push(`cor ${dm>0?'mais quente':'mais fria'} em ${nf(Math.abs(dm))} mired: `+nova.vals.map((x,j)=>`${NOME_CANAL[x.ch]} de ${nf(cur.cor[j]?cur.cor[j].v:0)}% para ${nf(x.v)}%`).join(', '));
@@ -1254,7 +1261,7 @@ const PASSOS=[
   {aba:'mesa',alvo:'btnZip',tit:'Mande para a mesa',txt:'Baixe o plugin, descompacte no pendrive, importe na grandMA2 e rode. Ele grava os presets de cor e intensidade nos aparelhos.'},
   {aba:'aferir',alvo:'tabPontos',tit:'Meça no palco',txt:'Com o preset aceso, toque em Medir no Foco 1. O app pergunta o que você tem para medir (cartão, folha branca ou copinho) e explica onde ficar e como tirar a foto. Verde está certo; amarelo ou vermelho, o app diz quanto mexer.'},
   {aba:'aferir',alvo:'btnAplicar',tit:'Corrija e meça de novo',txt:'Toque em Aplicar correções, rode o plugin outra vez e meça de novo. Quando tudo ficar verde, a luz da foto está pronta.',vai:'Terminar'}];
-let gPasso=store.get('fot.gPasso',0),gLiga=store.get('fot.dicas',true),gMini=false;
+let gPasso=clamp(Math.round(store.get('fot.gPasso',0))||0,0,PASSOS.length-1),gLiga=store.get('fot.dicas',true),gMini=false;
 function irAlvo(p){if(!p.aba)return;if($('t-'+p.aba).getAttribute('aria-selected')!=='true')$('t-'+p.aba).click();
   const el=$(p.alvo);if(!el)return;const box=el.closest('.passo,.cartao,.result,.campo')||el;
   document.querySelectorAll('.alvoGuia').forEach(x=>x.classList.remove('alvoGuia'));box.classList.add('alvoGuia');
