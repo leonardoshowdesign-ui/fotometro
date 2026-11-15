@@ -180,6 +180,17 @@ body.comGuia .app{padding-bottom:260px}
 .vBase{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 24px;background:linear-gradient(transparent,rgba(0,0,0,.85) 30%);display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
 .vBase p{margin:0;font-size:1.35rem;font-weight:600;color:#fff;max-width:28ch}
 .vBase button{min-height:44px;background:rgba(22,20,29,.8)}
+.pPasso{background:var(--coxia);border-radius:16px;box-shadow:0 0 0 1px var(--fita);padding:14px;display:flex;flex-direction:column;gap:10px}
+.pPasso .pTopo{display:flex;justify-content:space-between;align-items:center;gap:10px;font-size:.8rem;color:var(--poeira)}
+.pDots{display:flex;flex-wrap:wrap;gap:5px;justify-content:flex-end}
+.pDots button{width:14px;height:14px;min-height:0;padding:0;border-radius:50%;border:2px solid var(--fita);background:transparent}
+.pDots button.feito{background:var(--luz);border-color:var(--luz)}.pDots button.atual{border-color:var(--giz);box-shadow:0 0 0 2px var(--coxia),0 0 0 4px var(--giz)}
+.pPasso .pCor{font-size:.8rem;text-transform:uppercase;letter-spacing:.08em;color:var(--luz)}
+.pPasso h3{margin:0;font-family:var(--f-leitura);font-size:1.9rem;line-height:1}
+.pPasso code.cmd{font-size:.95rem;padding:10px 12px;background:var(--case);border-radius:10px;white-space:pre;display:block}
+.pPasso .pAnt{font-size:.82rem;color:var(--ok)}
+.pPasso .pAcoes{display:flex;gap:8px}.pPasso .pAcoes button{flex:1;min-height:44px}.pPasso .pAcoes .primario{flex:2;min-height:52px;font-size:1.05rem}
+.todasMed{margin-top:4px}
 .medBox{position:fixed;inset:0;z-index:60;background:rgba(10,8,14,.78);display:flex;align-items:flex-end;justify-content:center;padding:12px}
 .medCard{width:min(100%,560px);max-height:calc(100vh - 24px);overflow:auto;background:#2a2433;border-radius:20px;box-shadow:0 0 0 1px var(--luz);padding:16px;display:flex;flex-direction:column;gap:10px}
 .medCard .gTopo{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--poeira)}
@@ -342,7 +353,7 @@ body.comGuia .app{padding-bottom:260px}
       <h2>Perfil de cor</h2>
       <div id="sisPerfilBox"></div>
       <div class="campos"><div class="campo"><label for="idTeste">Aparelho de teste (ID na mesa)</label><input id="idTeste" type="number" inputmode="numeric"></div></div>
-      <p class="nota">Use um aparelho só. O perfil vale para todos desse modelo, em qualquer show. Embaixo de cada medida estão os comandos para digitar na grandMA2, uma linha por vez.</p>
+      <p class="nota">Use um aparelho só. O perfil vale para todos desse modelo, em qualquer show. O app pede uma medida de cada vez e mostra o que digitar na grandMA2.</p>
       <p class="guia" id="perfilGuia"></p>
       <details>
         <summary>Como medir sem errar</summary>
@@ -353,10 +364,11 @@ body.comGuia .app{padding-bottom:260px}
           <li>Faça todas as medidas na mesma sessão, sem mexer no dimmer nem no zoom.</li>
         </ol>
       </details>
+      <div class="pPasso" id="perfilPasso" aria-live="polite"></div>
       <div id="visorAqui1"></div>
-      <div class="tabwrap"><table id="tabPerfil" aria-label="Medidas do perfil"></table></div>
+      <details class="todasMed"><summary>Ver todas as medidas</summary><div class="tabwrap"><table id="tabPerfil" aria-label="Medidas do perfil"></table></div></details>
       <div class="acoes">
-        <button type="button" class="primario" id="btnSalvaPerfil">Salvar perfil</button>
+        <button type="button" class="primario" id="btnSalvaPerfil" hidden>Salvar perfil</button>
         <button type="button" id="btnApagaPerfil">Apagar perfil</button>
       </div>
       <p class="nota" id="msgPerfil"></p>
@@ -468,7 +480,7 @@ body.comGuia .app{padding-bottom:260px}
     <div class="visor">
       <canvas id="tela" width="640" height="480"></canvas>
       <div class="spot" aria-hidden="true"></div>
-      <span class="selo" id="selo">Escolha uma linha e toque em Medir</span>
+      <span class="selo" id="selo">Toque em Medir para começar</span>
     </div>
   </div>
   <input type="file" id="foto" accept="image/*" capture="environment">
@@ -1006,7 +1018,7 @@ $('fCad').addEventListener('submit',async e=>{e.preventDefault();$('msgCad').tex
   $('fCad').hidden=true;editando=null;sel=id;atualizarTudo();$('msgBib').textContent=`${marca} ${modelo} salvo na biblioteca.`});
 
 /* perfil de cor: passos de medição conforme o sistema de cor */
-let perfilRasc=null;
+let perfilChave=null,perfilIdx=null,perfilUlt=null,perfilRasc=null;
 function passosPerfil(f){
   if(['cto','ctb','cct'].includes(f.cor)){const c=CANAIS[f.cor][0];return[0,25,50,75,100].map(v=>({k:c+v,rot:`${NOME_CANAL[c]} em ${v}%`,v}))}
   if(f.cor==='cmy')return[{k:'branco',rot:'Aberto, sem cor'}].concat(...['C','M','Y'].map(fl=>[25,50,75,100].map(v=>({k:fl+v,fl,v,rot:`Só ${NOME_CANAL[fl].toLowerCase()} em ${v}%`}))));
@@ -1024,20 +1036,44 @@ function guiaPerfil(f){if(f.sisAlt&&['cto','ctb','cct'].includes(f.cor))return`M
 function renderPerfil(){
   const f=efetivo(achar(sel)),P=perfilRasc||PERFIS[f.pkey]||null,passos=passosPerfil(f);$('sisPerfilBox').innerHTML=sisSelect('sisPerfil',achar(sel));ligarSis('sisPerfil');
   $('perfilGuia').textContent=guiaPerfil(f);
+  if(perfilChave!==f.pkey){perfilChave=f.pkey;perfilIdx=null;perfilUlt=null}
   const val=k=>{if(!P)return null;if(P.tipo==='niveis'){const p=P.pontos.find(x=>CANAIS[f.cor][0]+x.v===k);return p}
     if(P.tipo==='cmy'){if(k==='branco')return P.branco;const fl=k[0],v=+k.slice(1);return(P.flags[fl]||[]).find(x=>x.v===v)}
     return P.canais&&P.canais[k]};
   const temExpo=P&&JSON.stringify(P).includes('"expo":false');
+  const val2=k=>{const Q=perfilRasc||PERFIS[f.pkey];if(!Q)return null;if(Q.tipo==='niveis')return Q.pontos.find(x=>CANAIS[f.cor][0]+x.v===k);if(Q.tipo==='cmy'){if(k==='branco')return Q.branco;return(Q.flags[k[0]]||[]).find(x=>x.v===+k.slice(1))}return Q.canais&&Q.canais[k]};
   $('tabPerfil').innerHTML='<thead><tr><th>Medida</th><th class="num">Leitura</th><th></th></tr></thead><tbody>'+passos.map(p=>{const m=val(p.k);
     const leitura=m?(m.K?`${nf(Math.round(m.K/50)*50)} K`:'')+(m.cor?`<span class="amostrinha" style="background:rgb(${m.cor.join(',')})"></span>`:'')+(m.K?'':'medido'):'–';
     return`<tr><td>${p.rot}<code class="cmd">${esc(cmdPasso(f,p))}</code></td><td class="num">${leitura}</td><td><button type="button" data-k="${p.k}">${m?'Refazer':'Medir'}</button></td></tr>`}).join('')+'</tbody>';
-  $('tabPerfil').querySelectorAll('button').forEach(b=>b.onclick=()=>{const p=passos.find(x=>x.k===b.dataset.k);medir(p.rot,o=>{
+  const medirPasso=(p,depois)=>medir(p.rot,o=>{
     const reg={rgb:o.rgb,expo:o.expo,cor:o.cor,K:Math.round(o.T),lum:rgb2xyz(...o.rgb)[1]};
     let R=perfilRasc||(PERFIS[f.pkey]?JSON.parse(JSON.stringify(PERFIS[f.pkey])):null);
     if(['cto','ctb','cct'].includes(f.cor)){R=R&&R.tipo==='niveis'?R:{tipo:'niveis',pontos:[]};R.pontos=R.pontos.filter(x=>x.v!==p.v).concat([{v:p.v,...reg}])}
     else if(f.cor==='cmy'){R=R&&R.tipo==='cmy'?R:{tipo:'cmy',branco:null,flags:{C:[],M:[],Y:[]}};if(p.k==='branco')R.branco=reg;else R.flags[p.fl]=R.flags[p.fl].filter(x=>x.v!==p.v).concat([{v:p.v,...reg}])}
     else{R=R&&R.tipo==='aditivo'?R:{tipo:'aditivo',canais:{}};R.canais[p.ch]=reg}
-    perfilRasc=R;$('selo').textContent=`${p.rot}: ${o.cor?'medido':''}${isFinite(o.T)&&['cto','ctb','cct','cmy'].includes(f.cor)?', '+nf(Math.round(o.T/50)*50)+' K':''}`;renderPerfil()})});
+    perfilRasc=R;perfilUlt={rot:p.rot,K:isFinite(o.T)&&['cto','ctb','cct','cmy'].includes(f.cor)?Math.round(o.T/50)*50:null};$('selo').textContent=`${p.rot}: medido${perfilUlt.K?', '+nf(perfilUlt.K)+' K':''}`;if(depois)depois();renderPerfil()});
+  $('tabPerfil').querySelectorAll('button').forEach(b=>b.onclick=()=>{const p=passos.find(x=>x.k===b.dataset.k);medirPasso(p)});
+  // uma medida por vez
+  const i0=passos.findIndex(p=>!val(p.k));if(perfilIdx==null||perfilIdx>=passos.length)perfilIdx=i0<0?passos.length:i0;
+  const box=$('perfilPasso'),dots=`<div class="pDots">${passos.map((p,i)=>`<button type="button" data-i="${i}" class="${val(p.k)?'feito':''} ${i===perfilIdx?'atual':''}" aria-label="${esc(p.rot)}${val(p.k)?', medido':''}"></button>`).join('')}</div>`;
+  const feitos=passos.filter(p=>val(p.k)).length;
+  if(perfilIdx>=passos.length&&!perfilRasc&&PERFIS[f.pkey]){box.innerHTML=`<div class="pTopo"><span>${feitos} de ${passos.length} medidas</span>${dots}</div><h3>Perfil salvo</h3>
+      <p>O app já calcula a cor deste modelo pelas suas medidas.</p><div class="pAcoes"><button type="button" id="pRefaz">Medir de novo</button><button type="button" class="primario" id="pUsa">Usar no Montar</button></div>`;
+    $('pRefaz').onclick=()=>{perfilIdx=0;perfilUlt=null;renderPerfil()};$('pUsa').onclick=()=>$('btnUsar').click()}
+  else if(perfilIdx>=passos.length){box.innerHTML=`<div class="pTopo"><span>${feitos} de ${passos.length} medidas</span>${dots}</div><h3>Tudo medido</h3>
+      <p>Confira se nenhuma leitura ficou estranha e toque em Salvar perfil.</p><div class="pAcoes"><button type="button" id="pVolta">Refazer a última</button><button type="button" class="primario" id="pSalva" ${$('btnSalvaPerfil').disabled?'':''}>Salvar perfil</button></div>`;
+    $('pVolta').onclick=()=>{perfilIdx=passos.length-1;renderPerfil()};$('pSalva').onclick=()=>$('btnSalvaPerfil').click()}
+  else{const p=passos[perfilIdx],ant=passos[perfilIdx-1],novaCor=p.fl&&(!ant||ant.fl!==p.fl),m=val(p.k);
+    box.innerHTML=`<div class="pTopo"><span>Medida ${perfilIdx+1} de ${passos.length}</span>${dots}</div>
+      ${perfilUlt?`<div class="pAnt">Feito: ${esc(perfilUlt.rot)}${perfilUlt.K?', '+nf(perfilUlt.K)+' K':''}</div>`:''}
+      ${novaCor?`<div class="pCor">Agora o ${NOME_CANAL[p.fl].toLowerCase()}</div>`:''}
+      <h3>${esc(p.rot)}</h3>
+      <p class="nota">1. Na mesa, digite:</p><code class="cmd">${esc(cmdPasso(f,p))}</code>
+      <p class="nota">2. Toque em Medir e aponte para o cartão${m?'. Esta já tem leitura; medir de novo substitui.':'.'}</p>
+      <div class="pAcoes"><button type="button" id="pAnt" ${perfilIdx===0?'disabled':''}>Voltar</button><button type="button" class="primario" id="pMede">Medir</button><button type="button" id="pPula">Pular</button></div>`;
+    $('pMede').onclick=()=>medirPasso(p,()=>{let j=passos.findIndex((q,k)=>k>perfilIdx&&!val2(q.k));if(j<0)j=passos.findIndex(q=>!val2(q.k));perfilIdx=j<0?passos.length:j});
+    $('pAnt').onclick=()=>{perfilIdx=Math.max(0,perfilIdx-1);perfilUlt=null;renderPerfil()};$('pPula').onclick=()=>{perfilIdx++;perfilUlt=null;renderPerfil()}}
+  box.querySelectorAll('.pDots button').forEach(b=>b.onclick=()=>{perfilIdx=+b.dataset.i;perfilUlt=null;renderPerfil()});
   const completo=P&&(P.tipo==='niveis'?P.pontos.length>=2:P.tipo==='cmy'?!!P.branco&&['C','M','Y'].some(fl=>P.flags[fl].length):['R','G','B'].every(c=>P.canais[c]));
   $('btnSalvaPerfil').disabled=!perfilRasc||!completo;$('btnApagaPerfil').disabled=!PERFIS[f.pkey];
   const mix=P&&P.tipo!=='niveis'&&!P.expo&&JSON.stringify(P).includes('"expo":false');
@@ -1262,7 +1298,7 @@ const PASSOS=[
   {aba:'montar',alvo:'alt',tit:'Onde eles estão',txt:'Informe a altura da vara, a distância da vara até a boca de cena, onde o artista fica e a largura do palco que precisa de luz. Pode ser no olho, a aferição corrige depois.'},
   {aba:'montar',alvo:'kAlvo',tit:'Que luz a foto pede',txt:'Na dúvida, deixe 5600 K, que é luz de dia e o padrão de TV, e 1200 lux. Se o fotógrafo passar abertura, obturador e ISO, abra "Não sei quantos lux" que o app calcula.'},
   {aba:'montar',alvo:'resultBox',tit:'Confira o ponto de partida',txt:'Aqui estão o zoom, a intensidade e a cor de cada aparelho. Se aparecer algum aviso embaixo, leia antes de seguir.'},
-  {aba:'aparelhos',alvo:'perfilBox',tit:'Medir a cor do aparelho',extra:{rot:'Abrir o passo a passo da calibração',trilha:'calibrar'},txt:()=>plano&&temPerfil(plano.f)?'Este modelo já tem a cor medida. Pode seguir.':'Recomendado: acenda um aparelho só e siga a tabela, medindo cada linha com o celular. Leva uns 10 minutos e vale para todos desse modelo. Se não der tempo, toque em Próximo e o app usa uma estimativa.'},
+  {aba:'aparelhos',alvo:'perfilBox',tit:'Medir a cor do aparelho',extra:{rot:'Abrir o passo a passo da calibração',trilha:'calibrar'},txt:()=>plano&&temPerfil(plano.f)?'Este modelo já tem a cor medida. Pode seguir.':'Recomendado: acenda um aparelho só e siga as medidas que o app vai pedindo, uma de cada vez. Leva uns 10 minutos e vale para todos desse modelo. Se não der tempo, toque em Próximo e o app usa uma estimativa.'},
   {aba:'mesa',alvo:'btnZip',tit:'Mande para a mesa',txt:'Baixe o plugin, descompacte no pendrive, importe na grandMA2 e rode. Ele grava os presets de cor e intensidade nos aparelhos.'},
   {aba:'aferir',alvo:'tabPontos',tit:'Meça no palco',txt:'Com o preset aceso, toque em Medir no Foco 1. O app pergunta o que você tem para medir (cartão, folha branca ou copinho) e explica onde ficar e como tirar a foto. Verde está certo; amarelo ou vermelho, o app diz quanto mexer.'},
   {aba:'aferir',alvo:'btnAplicar',tit:'Corrija e meça de novo',txt:'Toque em Aplicar correções, rode o plugin outra vez e meça de novo. Quando tudo ficar verde, a luz da foto está pronta.',vai:'Terminar'}];
@@ -1274,8 +1310,8 @@ const PASSOS_CAL=[
   {aba:'aparelhos',alvo:'fCad',tit:'Salvar na biblioteca',txt:'Confira os dados e toque em Salvar na biblioteca. O aparelho passa a aparecer na lista e no Montar.'},
   {aba:'aparelhos',alvo:'sisPerfilBox',tit:'Como trabalhar a cor',txt:'Escolha como você quer fazer a temperatura nesse aparelho. Se ele tem CTO ou canal de temperatura, use esse, que é o mais simples. Se só tem CMY, use CMY. LED usa RGB ou RGBW.'},
   {aba:'aparelhos',alvo:'idTeste',tit:'Prepare o teste',txt:'Digite o número desse aparelho na mesa. No celular, abra a câmera no modo Pro e trave o balanço de branco em 5600 K. Sem isso o celular corrige a cor sozinho e o perfil sai errado.'},
-  {aba:'aparelhos',alvo:'tabPerfil',tit:'Meça linha por linha',txt:'Em cada linha, digite na mesa os comandos que aparecem embaixo do nome e toque em Medir. Siga de cima para baixo, sempre do mesmo lugar, sem mexer no zoom nem no dimmer entre uma medida e outra.'},
-  {aba:'aparelhos',alvo:'btnSalvaPerfil',tit:'Salve o perfil',txt:'Quando todas as linhas tiverem leitura, toque em Salvar perfil. A partir daí o app calcula a cor desse modelo pelas medidas, não mais pela estimativa.'},
+  {aba:'aparelhos',alvo:'perfilPasso',tit:'Uma medida por vez',txt:'O app mostra uma medida de cada vez. Digite na mesa os comandos que aparecem, toque em Medir e ele já passa para a próxima. Fique sempre no mesmo lugar e não mexa no zoom nem no dimmer entre uma medida e outra.'},
+  {aba:'aparelhos',alvo:'perfilPasso',tit:'Salve o perfil',txt:'Quando aparecer Tudo medido, toque em Salvar perfil. A partir daí o app calcula a cor desse modelo pelas medidas, não mais pela estimativa.'},
   {aba:'aparelhos',alvo:'detalhe',tit:'Pronto',txt:'Toque em Usar no Montar para usar esse aparelho no show. Se algum dia trocar a lâmpada ou o motor de LED, vale medir de novo.',vai:'Terminar'}];
 const TRILHAS={show:PASSOS,calibrar:PASSOS_CAL};
 let gTrilha=TRILHAS[store.get('fot.gTrilha','show')]?store.get('fot.gTrilha','show'):'show',gVolta=store.get('fot.gVoltaShow',false);
