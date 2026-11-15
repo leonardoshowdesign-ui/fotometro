@@ -173,6 +173,9 @@ body.comGuia .app{padding-bottom:260px}
 .guiaCard.mini>:not(.gTopo){display:none}.guiaCard.mini .gTopo{flex:1}
 .vivo{position:fixed;inset:0;z-index:70;background:#000;display:flex;flex-direction:column}
 .vivo video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+#vZebra{position:absolute;inset:0;width:100%;height:100%;object-fit:cover;pointer-events:none}
+.vInfo{position:absolute;left:0;right:0;top:62px;text-align:center;font-size:.78rem;color:#fff;text-shadow:0 1px 6px #000;pointer-events:none;font-variant-numeric:tabular-nums}
+.vHist{position:absolute;left:12px;bottom:130px;background:rgba(0,0,0,.55);border-radius:8px;pointer-events:none}
 .vAlvo{position:absolute;left:50%;top:50%;width:min(36vw,36vh);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:4px solid var(--luz);box-shadow:0 0 0 2000px rgba(0,0,0,.35)}
 .vivo.pronto .vAlvo{border-color:var(--ok)}
 .vTopo{position:relative;display:flex;justify-content:space-between;padding:12px}.vTopo button{min-height:40px;background:rgba(22,20,29,.8)}
@@ -486,9 +489,11 @@ body.comGuia .app{padding-bottom:260px}
     </div>
   </div>
   <input type="file" id="foto" accept="image/*" capture="environment">
+  <input type="file" id="fotoGal" accept="image/*" hidden>
   <div class="vivo" id="vivo" hidden>
-    <video id="vVideo" playsinline muted></video><div class="vAlvo" id="vAlvo" aria-hidden="true"></div>
+    <video id="vVideo" playsinline muted></video><canvas id="vZebra" aria-hidden="true"></canvas><div class="vAlvo" id="vAlvo" aria-hidden="true"></div>
     <div class="vTopo"><button type="button" id="vFecha">Cancelar</button><button type="button" id="vVoz">Voz ligada</button></div>
+    <div class="vInfo" id="vInfo"></div><canvas class="vHist" id="vHist" width="120" height="44" aria-hidden="true"></canvas>
     <div class="vConta" id="vConta" aria-live="assertive"></div>
     <div class="vBase"><p id="vMsg" aria-live="polite"></p><button type="button" id="vAgora">Medir agora</button></div>
   </div>
@@ -705,8 +710,9 @@ function medPasso(e){const C=$('mCorpo'),T=$('mTit');$('mConta').textContent='Me
     const txt=ref==='difusor'?['Fique exatamente onde o artista vai ficar, na altura do rosto.','Vire a câmera traseira, com o difusor, de frente para os aparelhos. A tela fica virada para você.','Toque em Abrir câmera e tire a foto.']
       :['Fique a 1 metro na frente '+REFS[ref].da+', mais ou menos um passo largo.','Fique um pouco de lado, para o seu corpo não fazer sombra '+(ref==='cinza'?'nele':'nela')+'.','Toque em Abrir câmera e aponte para '+REFS[ref].o+'. Chegue perto até '+(ref==='cinza'?'ele':'ela')+' encher a tela e tire a foto.'];
     C.innerHTML=`<ol>${txt.map(x=>`<li>${x}</li>`).join('')}</ol><p class="nota">Usando ${REFS[ref].nome}, câmera ${isoModo==='manual'?'manual (ISO '+isoMan.iso+')':'automática'}. <a href="#" id="mTroca">Trocar</a></p>
-      <div class="medAcoes"><button type="button" class="primario" id="mA">Abrir câmera</button></div>`;
-    $('mTroca').onclick=ev=>{ev.preventDefault();medPasso('tem')};$('mA').onclick=()=>capturar();return}}
+      <div class="medAcoes"><button type="button" class="primario" id="mA">Abrir câmera</button></div>
+      <button type="button" id="mGal">Usar foto da galeria</button><p class="nota">Galeria serve para quem tira a foto num app de câmera manual, como o Blackmagic Camera (grátis, iPhone e Android), que deixa fixar ISO, tempo e balanço de branco. O app lê o ISO e o tempo da foto se o arquivo trouxer.</p>`;
+    $('mTroca').onclick=ev=>{ev.preventDefault();medPasso('tem')};$('mA').onclick=()=>capturar();$('mGal').onclick=()=>$('fotoGal').click();return}}
 function medResultado(o,prob){const C=$('mCorpo');
   if(prob&&prob.grave){$('mTit').textContent='Vamos de novo';
     C.innerHTML=`<p class="medAviso">${prob.txt}</p><div class="medAcoes"><button type="button" id="mV">Ver instruções</button><button type="button" class="primario" id="mA">Tirar outra foto</button></div>`;
@@ -731,7 +737,7 @@ function fracVivo(){const v=vivo.v,vw=v.videoWidth,vh=v.videoHeight,sc=Math.max(
 async function processarArquivo(file,exifExtra,frac){const exif=readExif(await file.arrayBuffer())||exifExtra||exifManual();
   const url=URL.createObjectURL(file),img=new Image();
   img.onload=()=>{if(frac)desenharSpot(img,img.naturalWidth,img.naturalHeight,frac);else desenhar(img,img.naturalWidth,img.naturalHeight);URL.revokeObjectURL(url);concluir(analisar(exif))};img.src=url}
-$('foto').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(!file||!aoMedir)return;processarArquivo(file)});
+['foto','fotoGal'].forEach(id=>$(id).addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(!file||!aoMedir)return;processarArquivo(file)}));
 
 /* ---------- modo ao vivo: guia pela câmera e mede sozinho depois de 3 s parado ---------- */
 let vivoOff=!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia),vivo=null,voz=store.get('fot.voz',true);
@@ -739,10 +745,28 @@ function capturar(){if(vivoOff){$('foto').click();return}abrirVivo()}
 function falar(t){if(!voz||!window.speechSynthesis)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';u.rate=1.05;speechSynthesis.speak(u)}catch(e){}}
 async function abrirVivo(){$('vivo').hidden=false;$('vMsg').textContent='Abrindo a câmera...';$('vConta').textContent='';$('vVoz').textContent=voz?'Voz ligada':'Voz desligada';
   try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:960}},audio:false});
-    const v=$('vVideo');v.srcObject=st;await v.play();vivo={st,v,ant:null,okDesde:0,ultimaFala:'',tFala:0,timer:0,contando:false};vivo.timer=setInterval(quadro,140)}
+    const v=$('vVideo');v.srcObject=st;await v.play();vivo={st,v,ant:null,okDesde:0,ultimaFala:'',tFala:0,timer:0,contando:false,wb:false,exp:false};await travarWB();vivo.timer=setInterval(quadro,140)}
   catch(e){fecharVivo();vivoOff=true;
     if(medAtivo){$('mTit').textContent='Câmera ao vivo indisponível';$('mCorpo').innerHTML=`<p>Aqui a câmera ao vivo não abre, então vamos por foto. Toque em Tirar foto e aponte como explicado.</p><div class="medAcoes"><button type="button" class="primario" id="mA">Tirar foto</button></div>`;$('mA').onclick=()=>$('foto').click()}
     else $('selo').textContent='A câmera ao vivo não abriu. Toque em Medir de novo para usar a foto.'}}
+async function travarWB(){try{const tr=vivo.st.getVideoTracks()[0],c=tr.getCapabilities?tr.getCapabilities():{},adv={};
+  if(c.whiteBalanceMode&&c.whiteBalanceMode.includes('manual')){adv.whiteBalanceMode='manual';if(c.colorTemperature)adv.colorTemperature=clamp(5600,c.colorTemperature.min,c.colorTemperature.max)}
+  if(Object.keys(adv).length){await tr.applyConstraints({advanced:[adv]});vivo.wb=true}}catch(e){}}
+async function travarExp(on){if(!vivo)return;try{const tr=vivo.st.getVideoTracks()[0],c=tr.getCapabilities?tr.getCapabilities():{},st=tr.getSettings();
+  if(on&&!vivo.exp&&c.exposureMode&&c.exposureMode.includes('manual')&&st.iso&&st.exposureTime){await tr.applyConstraints({advanced:[{exposureMode:'manual',iso:st.iso,exposureTime:st.exposureTime}]});vivo.exp=true}
+  else if(!on&&vivo.exp&&c.exposureMode&&c.exposureMode.includes('continuous')){await tr.applyConstraints({advanced:[{exposureMode:'continuous'}]});vivo.exp=false}}catch(e){}}
+const zc=$('vZebra'),zx=zc.getContext('2d',{willReadFrequently:true}),hc=$('vHist'),hx=hc.getContext('2d');let zq=0;
+function zebraHist(){const v=vivo.v,W=160,H=Math.max(2,Math.round(160*v.videoHeight/v.videoWidth));if(zc.width!==W||zc.height!==H){zc.width=W;zc.height=H}
+  zx.drawImage(v,0,0,W,H);const im=zx.getImageData(0,0,W,H),d=im.data,bins=new Array(48).fill(0);let n=0;zq=(zq+1)%6;
+  for(let y=0;y<H;y++)for(let x=0;x<W;x++){const i=(y*W+x)*4,r=d[i],g=d[i+1],b=d[i+2],l=0.2126*r+0.7152*g+0.0722*b;bins[Math.min(47,Math.floor(l/256*48))]++;n++;
+    if(r>250||g>250||b>250){const on=((x+y+zq)%6)<3;d[i]=255;d[i+1]=on?40:255;d[i+2]=on?40:255;d[i+3]=on?210:0}else d[i+3]=0}
+  zx.putImageData(im,0,0);
+  hx.clearRect(0,0,120,44);const mx=Math.max(...bins.slice(1,47),1);hx.fillStyle='rgba(255,255,255,.85)';bins.forEach((c,k)=>{const h=Math.min(40,Math.round(c/mx*40));hx.fillRect(k*2.5,42-h,2,h)});
+  hx.fillStyle='rgba(255,90,90,.9)';hx.fillRect(117,0,3,44)}
+function infoCam(){try{const st=vivo.st.getVideoTracks()[0].getSettings(),p=[];
+  if(st.iso)p.push('ISO '+Math.round(st.iso));if(st.exposureTime)p.push('1/'+Math.round(10000/st.exposureTime));
+  if(st.colorTemperature)p.push(nf(Math.round(st.colorTemperature))+' K');
+  p.push(vivo.wb?'balanço de branco travado':'balanço de branco automático');if(vivo.exp)p.push('exposição travada');$('vInfo').textContent=p.join(' · ')}catch(e){}}
 function fecharVivo(){if(vivo){clearInterval(vivo.timer);vivo.st.getTracks().forEach(t=>t.stop());vivo=null}$('vivo').hidden=true;try{speechSynthesis.cancel()}catch(e){}}
 $('vFecha').onclick=()=>{fecharVivo()};
 $('vVoz').onclick=()=>{voz=!voz;store.set('fot.voz',voz);$('vVoz').textContent=voz?'Voz ligada':'Voz desligada';if(!voz)try{speechSynthesis.cancel()}catch(e){}};
@@ -770,12 +794,12 @@ function avaliar(m,mov,frouxo){const U=frouxo?1.55:1.35,UD=frouxo?1.45:1.3,A=fro
   if(Math.abs(m.an/m.sp-1)>A)return'Chegue mais perto.';
   if(Math.abs(m.cantos/m.sp-1)<0.08)return'Afaste um pouco, você pode estar fazendo sombra.';
   return mov>MV?'Fique parado.':''}
-function quadro(){if(!vivo||!vivo.v.videoWidth)return;const m=medidaQuadro(),agora=performance.now();
+function quadro(){if(!vivo||!vivo.v.videoWidth)return;zebraHist();infoCam();const m=medidaQuadro(),agora=performance.now();
   let mov=0;if(vivo.ant){for(let i=0;i<m.grade.length;i++)mov+=Math.abs(m.grade[i]-vivo.ant[i])/(vivo.ant[i]+0.02);mov/=m.grade.length}vivo.ant=m.grade;
   vivo.mov=vivo.mov==null?mov:vivo.mov*0.6+mov*0.4;
   const msg=avaliar(m,vivo.mov,!!vivo.inicio);
-  if(!msg){vivo.ruimDesde=0;if(!vivo.okDesde)vivo.okDesde=agora;if(!vivo.inicio&&agora-vivo.okDesde>400)vivo.inicio=agora}
-  else{vivo.okDesde=0;if(vivo.inicio){if(!vivo.ruimDesde)vivo.ruimDesde=agora;if(agora-vivo.ruimDesde>900){vivo.inicio=0;vivo.ruimDesde=0}}}
+  if(!msg){vivo.ruimDesde=0;if(!vivo.okDesde)vivo.okDesde=agora;if(!vivo.inicio&&agora-vivo.okDesde>400){vivo.inicio=agora;travarExp(true)}}
+  else{vivo.okDesde=0;if(vivo.inicio){if(!vivo.ruimDesde)vivo.ruimDesde=agora;if(agora-vivo.ruimDesde>900){vivo.inicio=0;vivo.ruimDesde=0;travarExp(false)}}}
   if(vivo.inicio){const falta=3-Math.floor((agora-vivo.inicio)/1000);
     if(falta<=0){disparar();return}
     if($('vConta').textContent!==String(falta)){$('vConta').textContent=falta;falar(String(falta))}
