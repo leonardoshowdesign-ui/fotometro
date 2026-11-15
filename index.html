@@ -167,6 +167,8 @@ body.comGuia .app{padding-bottom:260px}
 .guiaCard h3{margin:0;font-family:var(--f-leitura);font-size:1.5rem;color:var(--luz);line-height:1.05}
 .guiaCard p{margin:0;font-size:.95rem;line-height:1.4}
 .guiaCard .gBar{height:4px;background:var(--fita);border-radius:4px;overflow:hidden}.guiaCard .gBar i{display:block;height:100%;background:var(--luz)}
+.calAviso{min-height:1.2em;color:var(--atencao)}
+.erroCampo{outline:2px solid var(--fora);outline-offset:2px}
 .guiaCard #gExtra{min-height:40px;font-size:.88rem}
 .guiaCard .gAcoes{display:flex;gap:8px}.guiaCard .gAcoes button{flex:1;min-height:44px}
 .guiaCard.mini{padding:8px 14px;flex-direction:row;align-items:center;justify-content:space-between}
@@ -429,6 +431,17 @@ body.comGuia .app{padding-bottom:260px}
         <div class="campo"><label for="luxReal">O luxímetro marca (lux)</label><input id="luxReal" type="number" inputmode="numeric" placeholder="1200"></div>
         <div class="campo" style="justify-content:flex-end"><button type="button" id="btnCalLux">Calibrar lux</button></div>
       </div>
+      <p class="nota calAviso" id="calAviso" role="status"></p>
+      <details class="subcal"><summary>Não tenho luxímetro</summary>
+        <p class="nota">Use um aparelho da biblioteca que tenha luz medida pelo fabricante. Acenda só ele a 100%, branco aberto, sem gobo e sem cor, no zoom escolhido. Meça com a trena a distância até o cartão e toque em Calibrar. O erro fica por volta de 15%, por causa do desgaste da lâmpada.</p>
+        <div class="campos">
+          <div class="campo inteiro"><label for="calFx">Aparelho de referência</label><select id="calFx"></select></div>
+          <p class="nota inteiro" id="calSug"></p>
+          <div class="campo"><label for="calDist">Distância até o cartão (m)</label><input id="calDist" type="number" step="0.1" inputmode="decimal" value="5"></div>
+          <div class="campo"><label for="calZoom">Zoom usado (°)</label><input id="calZoom" type="number" step="0.1" inputmode="decimal"></div>
+          <div class="campo inteiro"><button type="button" class="primario" id="btnCalFx">Calibrar lux por este aparelho</button></div>
+        </div>
+      </details>
       <h3>Calibrar o difusor sem luxímetro</h3>
       <p class="nota">Cada difusor deixa passar uma quantidade diferente de luz. Debaixo de uma luz que não muda, meça primeiro o cartão ou a sulfite e depois o difusor, do mesmo lugar. O app compara as duas e guarda o fator do difusor.</p>
       <div class="campos">
@@ -1231,10 +1244,11 @@ function calInfo(){const p=[];if(cal.mired)p.push(`cor ${cal.mired>0?'+':''}${nf
   ['cinza','sulfite'].forEach(r=>{if(cal.ref[r]!==1)p.push(`lux com ${REFS[r].nome} ×${nf(cal.ref[r],2)}`)});
   p.push(cal.ref.difusor?'difusor calibrado':'difusor sem calibração');
   $('calInfo').textContent='Correção ativa: '+p.join(', ')+'.';refGuia()}
-$('btnCalK').onclick=()=>{const k=+$('kReal').value;if(!k){$('calInfo').textContent='Informe a temperatura real da fonte.';return}
+const calAviso=(t,campo)=>{$('calAviso').textContent=t;document.querySelectorAll('.erroCampo').forEach(x=>x.classList.remove('erroCampo'));if(campo){campo.classList.add('erroCampo');campo.focus();campo.addEventListener('input',()=>campo.classList.remove('erroCampo'),{once:true})}};
+$('btnCalK').onclick=()=>{const k=+$('kReal').value;if(!k){calAviso('Escolha uma fonte acima ou digite a temperatura real dela, depois toque em Calibrar cor.',$('kReal'));return}calAviso('');
   medir('fonte conhecida',o=>{const bruto=1e6/o.T-cal.mired;cal.mired=1e6/k-bruto;store.set('fot.cal',cal);calInfo();calcular()})};
-$('btnCalLux').onclick=()=>{const l=+$('luxReal').value;if(!l){$('calInfo').textContent='Informe o valor do luxímetro.';return}
-  medir('ponto do luxímetro',o=>{if(o.lux==null){$('calInfo').textContent='A foto veio sem dados de exposição. Sem eles não dá para calibrar lux.';return}cal.ref[ref]=l/o.luxBruto;store.set('fot.cal',cal);calInfo()})};
+$('btnCalLux').onclick=()=>{const l=+$('luxReal').value;if(!l){calAviso('Digite o valor que o luxímetro mostra e toque de novo. Sem luxímetro, abra "Não tenho luxímetro" logo abaixo.',$('luxReal'));return}calAviso('');
+  medir('ponto do luxímetro',o=>{if(o.luxBruto==null){$('calInfo').textContent='A foto veio sem dados de exposição. Sem eles não dá para calibrar lux.';return}cal.ref[ref]=l/o.luxBruto;store.set('fot.cal',cal);calInfo()})};
 let difPasso=null;
 $('btnCalDif').onclick=()=>{const comp=$('difComp').value;
   if(!difPasso){medir(REFS[comp].nome+' (referência do difusor)',o=>{if(!o.exif){$('calInfo').textContent='A foto veio sem dados de exposição. Sem eles não dá para calibrar o difusor.';return}
@@ -1247,6 +1261,18 @@ $('ref').onchange=()=>{ref=$('ref').value;store.set('fot.ref',ref);
   if(Object.keys(medidas).length){medidas={};store.set('fot.medidas3',medidas);renderPontos();$('selo').textContent='Referência trocada: as medições anteriores foram apagadas, porque não dá para comparar referências diferentes.'}
   refGuia()};
 $('kFontes').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('kFontes').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));$('kReal').value=b.dataset.k;if(!b.dataset.k)$('kReal').focus()});
+function preencherCalFx(){const lista=todos().filter(f=>!f.semZoom&&f.pts&&f.pts.length&&f.zoom),cur=$('calFx').value;
+  $('calFx').innerHTML=lista.map(f=>`<option value="${esc(f.id)}">${esc(f.marca)} ${esc(f.modelo)}</option>`).join('');if(lista.some(f=>f.id===cur))$('calFx').value=cur;
+  const f=lista.find(x=>x.id===$('calFx').value)||lista[0];if(f&&!$('calZoom').value)sugerirCal(f)}
+// zoom aberto (luz mais uniforme) e distância que deixa o cartão perto de 2.000 lux, onde a câmera do celular não estoura
+function sugerirCal(f){const z=f.zoom[1];$('calZoom').value=z;const d=Math.sqrt(candela(f,z)/2000);$('calDist').value=isFinite(d)?clamp(Math.round(d*2)/2,2,25):5;
+  $('calSug').textContent=isFinite(d)?`Sugestão: zoom aberto em ${nf(z,1)}° e cartão a uns ${$('calDist').value} m, para dar perto de 2.000 lux. Mais forte que isso o celular estoura.`:''}
+$('calFx').onchange=()=>{const f=achar($('calFx').value);if(f)sugerirCal(f)};
+$('btnCalFx').onclick=()=>{const f=achar($('calFx').value),d=+$('calDist').value,z=+$('calZoom').value;
+  if(!f){calAviso('Escolha o aparelho de referência.',$('calFx'));return}if(!(d>0)){calAviso('Digite a distância até o cartão, em metros.',$('calDist'));return}if(!(z>0)){calAviso('Digite o zoom que o aparelho está usando.',$('calZoom'));return}
+  const esp=candela(f,z)/(d*d);if(!(esp>0)){calAviso('Esse aparelho não tem dados de luz para esse zoom.');return}calAviso(`A ficha do fabricante dá cerca de ${nf(esp)} lux a ${nf(d,1)} m. Agora meça o cartão.`);
+  medir('aparelho de referência',o=>{if(o.lux==null&&o.luxBruto==null){calAviso('A foto veio sem ISO, abertura e tempo, então não dá para calibrar o lux. Use a câmera manual e digite os valores.');return}
+    cal.ref[ref]=esp/o.luxBruto;store.set('fot.cal',cal);calInfo();calAviso(`Lux calibrado com ${f.marca} ${f.modelo}: o celular lia ${nf(o.luxBruto)} lux e o esperado era ${nf(esp)}.`)})};
 $('btnZerarCal').onclick=()=>{cal={mired:0,lux:1,ref:{cinza:1,sulfite:1,difusor:null}};store.set('fot.cal',cal);calInfo();calcular()};calInfo();
 
 (function(){const w=tela.width,h=tela.height,g=ctx.createRadialGradient(w*.5,h*.45,10,w*.5,h*.5,w*.7);
@@ -1371,7 +1397,7 @@ $('btnDicas').onclick=()=>{gLiga=!gLiga;store.set('fot.dicas',gLiga);gMini=false
 /* ---------- início ---------- */
 function fontes(){$('fontes').innerHTML=FABRICA.map(f=>`<span>${f.marca} ${f.modelo}: ${f.url?`<a href="${f.url}" target="_blank" rel="noopener">${f.fonte}</a>`:f.fonte}</span>`).join('')+
   '<span>Aparelhos sem tabela de lux têm a intensidade estimada pelos lúmens e pelo ângulo do zoom. Aparelhos cadastrados por você usam os dados que você informou. Confira sempre com a aferição.</span>'}
-function atualizarTudo(){preencherSelect();ficha(achar(S.fx));if(!todos().some(f=>f.id===sel))sel=S.fx;renderAparelhos();calcular()}
+function atualizarTudo(){preencherCalFx();preencherSelect();ficha(achar(S.fx));if(!todos().some(f=>f.id===sel))sel=S.fx;renderAparelhos();calcular()}
 fontes();carregarCampos();atualizarTudo();renderGuia(gPasso>0);
 })();
 </script>
