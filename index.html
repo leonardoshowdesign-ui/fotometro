@@ -416,9 +416,11 @@ body.comGuia .app{padding-bottom:260px}
       <button type="button" id="btnZerarMed">Apagar medições</button>
     </div>
     <details>
-      <summary>Calibrar o celular</summary>
+      <summary id="calSum">Calibrar o celular</summary>
       <p class="nota">Mesmo com balanço de branco fixo, cada celular enxerga a cor de um jeito. Meça uma fonte de temperatura conhecida, informe o valor real e o app guarda a correção neste aparelho. Com um luxímetro ao lado, faça o mesmo para lux.</p>
       <div class="campos">
+        <div class="campo inteiro"><span class="nota">Fonte de referência:</span><div class="harm" id="kFontes">
+          <button type="button" data-k="3200">Refletor halógeno a 100% (3200 K)</button><button type="button" data-k="5600">LED com temperatura em 5600 K</button><button type="button" data-k="">Outra</button></div></div>
         <div class="campo"><label for="kReal">A fonte medida tem (K)</label><input id="kReal" type="number" inputmode="numeric" placeholder="5600"></div>
         <div class="campo" style="justify-content:flex-end"><button type="button" id="btnCalK">Calibrar cor</button></div>
         <div class="campo"><label for="luxReal">O luxímetro marca (lux)</label><input id="luxReal" type="number" inputmode="numeric" placeholder="1200"></div>
@@ -1220,6 +1222,7 @@ $('btnCalDif').onclick=()=>{const comp=$('difComp').value;
 $('ref').onchange=()=>{ref=$('ref').value;store.set('fot.ref',ref);
   if(Object.keys(medidas).length){medidas={};store.set('fot.medidas3',medidas);renderPontos();$('selo').textContent='Referência trocada: as medições anteriores foram apagadas, porque não dá para comparar referências diferentes.'}
   refGuia()};
+$('kFontes').querySelectorAll('button').forEach(b=>b.onclick=()=>{$('kFontes').querySelectorAll('button').forEach(x=>x.setAttribute('aria-pressed',x===b));$('kReal').value=b.dataset.k;if(!b.dataset.k)$('kReal').focus()});
 $('btnZerarCal').onclick=()=>{cal={mired:0,lux:1,ref:{cinza:1,sulfite:1,difusor:null}};store.set('fot.cal',cal);calInfo();calcular()};calInfo();
 
 (function(){const w=tela.width,h=tela.height,g=ctx.createRadialGradient(w*.5,h*.45,10,w*.5,h*.5,w*.7);
@@ -1293,6 +1296,7 @@ renderPaleta();mira();
 /* ---------- dicas passo a passo ---------- */
 const PASSOS=[
   {tit:'Vamos fazer a luz da foto',txt:'Vou te levar passo a passo até a luz ficar certa para a câmera. Você vai precisar do celular e de uma folha branca de papel. Quando já souber o caminho, é só tocar em Desligar dicas.',vai:'Começar'},
+  {aba:'aferir',alvo:'calSum',acao:()=>{$('calSum').parentElement.open=true},tit:'Prepare o celular',txt:()=>cal.mired?'Este celular já está calibrado. Só confira se o balanço de branco da câmera continua travado em 5600 K no modo Pro.':'Faça isso uma vez neste celular. Na câmera, abra o modo Pro e trave o balanço de branco em 5600 K. Depois acenda um refletor halógeno a 100% (PC, elipsoidal ou PAR com lâmpada), escolha ele aqui como referência e toque em Calibrar cor. Se tiver luxímetro, calibre o lux também. Sem fonte conhecida, pode pular: as comparações entre aparelhos continuam valendo, só o Kelvin absoluto fica aproximado.'},
   {aba:'montar',alvo:'fab',tit:'Escolha o aparelho',txt:'Toque em Fabricante e escolha a marca dos moving lights que vão fazer a luz da foto. Depois escolha o modelo. Se ele não estiver na lista, cadastre na aba Aparelhos.'},
   {aba:'montar',alvo:'qtd',tit:'Quantos e qual número',txt:'Diga quantos aparelhos vão iluminar e o número do primeiro deles na mesa (o ID do patch). O app conta os outros em sequência.'},
   {aba:'montar',alvo:'alt',tit:'Onde eles estão',txt:'Informe a altura da vara, a distância da vara até a boca de cena, onde o artista fica e a largura do palco que precisa de luz. Pode ser no olho, a aferição corrige depois.'},
@@ -1304,7 +1308,8 @@ const PASSOS=[
   {aba:'aferir',alvo:'btnAplicar',tit:'Corrija e meça de novo',txt:'Toque em Aplicar correções, rode o plugin outra vez e meça de novo. Quando tudo ficar verde, a luz da foto está pronta.',vai:'Terminar'}];
 const PASSOS_CAL=[
   {tit:'Calibrar um aparelho novo',txt:'Vamos ensinar ao app como esse aparelho entrega luz e cor. Você mede um aparelho só e o resultado vale para todos do mesmo modelo, em qualquer show. Leva uns 15 minutos. Precisa do aparelho pendurado, da mesa, do celular, de uma trena e do cartão ou da folha branca.',vai:'Começar'},
-  {aba:'aparelhos',alvo:'fBusca',tit:'Ele já está na lista?',txt:'Digite o modelo na busca. Se aparecer, toque nele e depois em "Achei, pular o cadastro". Se não aparecer, toque em Próximo que eu abro o cadastro.',extra:{rot:'Achei, pular o cadastro',ir:5}},
+  {aba:'aferir',alvo:'calSum',acao:()=>{$('calSum').parentElement.open=true},tit:'Primeiro, o celular',txt:()=>cal.mired?'Este celular já está calibrado. Confira só o balanço de branco travado em 5600 K.':'Antes de medir o aparelho, calibre o celular: balanço de branco travado em 5600 K no modo Pro e uma medida de um refletor halógeno a 100% como referência. Se já fez isso antes neste celular, toque em Próximo.'},
+  {aba:'aparelhos',alvo:'fBusca',tit:'Ele já está na lista?',txt:'Digite o modelo na busca. Se aparecer, toque nele e depois em "Achei, pular o cadastro". Se não aparecer, toque em Próximo que eu abro o cadastro.',extra:{rot:'Achei, pular o cadastro',ir:6}},
   {aba:'aparelhos',alvo:'cMarca',acao:()=>{if($('fCad').hidden)abrirCad(null)},tit:'Dados da ficha',txt:'Preencha fabricante, modelo e o zoom mínimo e máximo. Esses números estão na ficha técnica do fabricante (o PDF do site, parte de especificações). Lúmens, se a ficha trouxer. Em "Como ele faz a cor", escolha o que o aparelho tem: CTO, canal de temperatura, CMY ou LED RGBW.'},
   {aba:'aparelhos',alvo:'cMlux',acao:()=>{if($('fCad').hidden)abrirCad(null);$('cMlux').closest('details').open=true},tit:'Medir a luz dele',txt:'Acenda só esse aparelho a 100%, sem cor e sem gobo, com o zoom no mínimo. Prenda o cartão onde o foco bate e meça com a trena a distância do aparelho até o cartão. Digite a distância e o zoom, e toque em Medir com o celular. Se tiver um luxímetro, pode digitar o valor dele.'},
   {aba:'aparelhos',alvo:'fCad',tit:'Salvar na biblioteca',txt:'Confira os dados e toque em Salvar na biblioteca. O aparelho passa a aparecer na lista e no Montar.'},
