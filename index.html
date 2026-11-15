@@ -1,0 +1,1279 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#16141d">
+<style>*,*::before,*::after{box-sizing:border-box}html,body{margin:0}</style>
+</head>
+<body>
+<title>Fotômetro de Palco</title>
+<meta name="claude:viewport-fit-sides" content="cover">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Big+Shoulders+Display:wght@500;700;800&family=Archivo:wght@400;500;600&display=swap">
+<style>
+/* Layout: uma coluna de instrumento com cinco abas na ordem do trabalho no local:
+   Montar (aparelho, posição, alvo e resultado), Aparelhos (biblioteca, cadastro e perfil de cor),
+   Mesa (plugin grandMA2), Aferir (pontos medidos com o celular), Cores.
+   Tema escuro único, de propósito: é usado na coxia e no palco. O acento segue a temperatura alvo. */
+:root{
+  --coxia:#16141d; --case:#211e2b; --fita:#3a3547; --giz:#ece8f2; --poeira:#a39cb3;
+  --luz:#ffd2a1;
+  --ok:#7fd6a4; --atencao:#f2c46d; --fora:#ff8a7a;
+  --f-leitura:"Big Shoulders Display","Arial Narrow",Impact,sans-serif;
+  --f-texto:"Archivo",system-ui,-apple-system,"Segoe UI",sans-serif;
+  color-scheme:dark;
+}
+*{box-sizing:border-box}
+[hidden]{display:none!important}
+html,body{height:100%}
+body{background:var(--coxia);color:var(--giz);font-family:var(--f-texto);font-size:15px;line-height:1.45;
+  padding-left:max(16px,env(safe-area-inset-left,0px));padding-right:max(16px,env(safe-area-inset-right,0px))}
+body::before{content:"";position:fixed;inset:0 0 auto;height:env(safe-area-inset-top,0px);z-index:10;background:var(--coxia)}
+.app{max-width:560px;margin:0 auto;padding-block:14px 48px;display:flex;flex-direction:column;gap:16px}
+header{display:flex;align-items:baseline;justify-content:space-between;gap:12px}
+h1{font-family:var(--f-leitura);font-weight:800;font-size:1.7rem;margin:0;line-height:1;white-space:nowrap}
+h2{font-family:var(--f-leitura);font-weight:700;font-size:1.45rem;margin:0;line-height:1.05}
+h3{font-size:1rem;margin:0;font-weight:600}
+.modo{font-size:.8rem;color:var(--poeira);text-align:right;min-width:0}
+@media (max-width:430px){header{flex-direction:column;align-items:flex-start;gap:4px}.modo{text-align:left}}
+p{margin:0}
+.nota{font-size:.84rem;color:var(--poeira)}
+.guia{font-size:.92rem;color:var(--poeira);max-width:60ch}
+.refbox{display:flex;flex-direction:column;gap:6px;margin:0 0 12px}.refbox .nota{margin:0}
+
+.abas{display:grid;grid-template-columns:repeat(5,1fr);background:var(--case);border-radius:14px;padding:4px;gap:3px;position:sticky;top:env(safe-area-inset-top,0px);z-index:5}
+.abas button{border:0;background:transparent;min-height:44px;justify-content:center;color:var(--poeira);border-radius:10px;padding:8px 2px;font-size:.86rem}
+.abas button[aria-selected=true]{background:var(--coxia);color:var(--giz)}
+section[role=tabpanel]{display:flex;flex-direction:column;gap:18px}
+
+.passo{display:grid;grid-template-columns:34px 1fr;gap:4px 12px}
+.passo .n{grid-row:span 2;width:34px;height:34px;border-radius:50%;border:2px solid var(--luz);color:var(--luz);display:grid;place-items:center;font-family:var(--f-leitura);font-weight:700;font-size:1.2rem}
+.passo .corpo{display:flex;flex-direction:column;gap:10px;min-width:0;grid-column:2}
+.campos{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:10px}
+.campo{display:flex;flex-direction:column;gap:4px;min-width:0}
+.campo.inteiro{grid-column:1/-1}
+.campo label{font-size:.82rem;color:var(--poeira)}
+input[type=number],input[type=text],select{font:inherit;width:100%;background:var(--case);color:var(--giz);border:1px solid var(--fita);border-radius:10px;padding:10px 12px;min-height:46px}
+.ficha input[type=number],.ficha input[type=text],.ficha select,.cartao input,.cartao select{background:var(--coxia)}
+input:focus,select:focus{border-color:var(--poeira)}
+.ficha,.cartao{background:var(--case);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:8px;font-size:.88rem}
+.linha2{display:flex;flex-wrap:wrap;gap:4px 16px;color:var(--poeira)}
+.linha2 b{color:var(--giz);font-weight:600}
+.selo2{display:inline-block;font-size:.74rem;border-radius:999px;padding:2px 8px;border:1px solid var(--fita);color:var(--poeira)}
+.selo2.tab{border-color:var(--ok);color:var(--ok)}
+.selo2.est{border-color:var(--atencao);color:var(--atencao)}
+.selos{display:flex;flex-wrap:wrap;gap:6px}
+
+button,.btn{font:inherit;font-weight:600;color:var(--giz);background:var(--case);border:1px solid var(--fita);
+  border-radius:12px;padding:12px 16px;cursor:pointer;display:inline-flex;align-items:center;gap:8px;min-height:48px}
+button:hover{border-color:var(--poeira)}
+button:disabled{opacity:.45;cursor:default}
+.primario{background:var(--luz);color:#1a1410;border-color:transparent;justify-content:center}
+.primario:hover{filter:brightness(1.06)}
+.acoes{display:flex;gap:10px;flex-wrap:wrap}
+.acoes>*{flex:1 1 auto;justify-content:center}
+:focus-visible{outline:2px solid var(--giz);outline-offset:2px}
+input[type=file]{position:absolute;width:1px;height:1px;opacity:0;pointer-events:none}
+
+.result{border-radius:18px;background:var(--case);box-shadow:0 0 0 1px var(--fita),0 0 70px -30px var(--luz);overflow:hidden}
+.result .cab{padding:14px 16px 4px}
+.leituras{display:grid;grid-template-columns:1fr 1fr;gap:1px;background:var(--fita)}
+.leitura{background:var(--case);padding:12px 16px;min-width:0}
+.leitura .rot{font-size:.8rem;color:var(--poeira)}
+.leitura .val{font-family:var(--f-leitura);font-weight:700;font-size:2.7rem;line-height:.95;font-variant-numeric:tabular-nums}
+.leitura .val.multi{font-size:1.55rem;line-height:1.1;padding-block:6px 2px}
+.leitura .val small{font-size:1rem;font-weight:500;color:var(--poeira);margin-left:3px}
+.leitura .sub{font-size:.8rem;color:var(--poeira);font-variant-numeric:tabular-nums;margin-top:2px}
+.leitura.k .val{color:var(--luz)}
+.avisos{display:flex;flex-direction:column;gap:8px;padding:12px 16px 16px}
+.aviso{display:flex;gap:10px;font-size:.88rem;align-items:flex-start}
+.aviso::before{content:"";flex:none;width:10px;height:10px;border-radius:50%;margin-top:.35em;background:var(--ok)}
+.aviso.at::before{background:var(--atencao)}
+.aviso.fo::before{background:var(--fora)}
+.corte{width:100%;height:auto;display:block;background:var(--coxia);border-top:1px solid var(--fita)}
+
+pre{background:#0f0e14;color:#d8d3e3;border-radius:12px;padding:14px;margin:0;overflow-x:auto;font-size:.82rem;line-height:1.5;font-family:ui-monospace,Menlo,Consolas,monospace}
+ol.passos{margin:0;padding-left:1.3em;display:flex;flex-direction:column;gap:6px;font-size:.92rem;max-width:62ch}
+
+.visor{position:relative;aspect-ratio:4/3;max-width:100%;border-radius:16px;overflow:hidden;background:#000;box-shadow:0 0 0 1px var(--fita)}
+.visor canvas{position:absolute;inset:0;width:100%;height:100%;display:block}
+.spot{position:absolute;left:50%;top:50%;width:22%;aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:2px solid var(--luz);box-shadow:0 0 0 1px rgba(0,0,0,.6);pointer-events:none}
+.selo{position:absolute;left:10px;top:10px;right:10px;width:max-content;max-width:calc(100% - 20px);font-size:.75rem;background:rgba(22,20,29,.82);padding:4px 9px;border-radius:999px}
+table{width:100%;border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:.88rem}
+th{text-align:left;font-weight:500;color:var(--poeira);font-size:.76rem;padding:6px 5px;border-bottom:1px solid var(--fita)}
+td{padding:8px 5px;border-bottom:1px solid var(--fita);vertical-align:middle}
+.num{text-align:right}
+.tabwrap{overflow-x:auto}
+td button{min-height:36px;padding:6px 10px;font-size:.82rem}
+tr.ativo td{background:rgba(255,255,255,.04)}
+.desvio{display:inline-block;min-width:3.6em;text-align:center;border-radius:6px;padding:2px 6px;font-weight:600;color:#16141d}
+.amostrinha{display:inline-block;width:14px;height:14px;border-radius:4px;vertical-align:-2px;margin-right:6px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.2)}
+.correcao{background:var(--case);border-radius:14px;padding:14px;display:flex;flex-direction:column;gap:8px}
+.correcao ul{margin:0;padding-left:1.1em;display:flex;flex-direction:column;gap:4px;font-size:.9rem}
+
+.lista{display:flex;flex-direction:column;border-radius:14px;overflow:hidden;background:var(--fita);gap:1px}
+.lista button{border:0;border-radius:0;background:var(--case);justify-content:space-between;text-align:left;font-weight:500;min-height:54px}
+.lista button[aria-pressed=true]{background:#2b2738}
+.grupos{display:flex;flex-direction:column;gap:10px}
+code.cmd{display:block;margin-top:4px;font-family:ui-monospace,Menlo,Consolas,monospace;font-size:.72rem;color:var(--poeira);word-break:break-word;white-space:pre-line}
+.grupo{padding:0;overflow:hidden}
+.grupo>summary{padding:14px;display:flex;justify-content:space-between;gap:10px;font-family:var(--f-leitura);font-size:1.25rem;font-weight:700;list-style:none}
+.grupo>summary::-webkit-details-marker{display:none}
+.grupo>summary{cursor:pointer;align-items:center}
+.grupo>summary::after{content:"";width:9px;height:9px;border-right:2px solid var(--poeira);border-bottom:2px solid var(--poeira);transform:rotate(45deg);margin:-4px 4px 0 0;flex:none;transition:transform .2s}
+.grupo[open]>summary::after{transform:rotate(-135deg);margin-top:4px}
+.grupo>summary small{margin-left:auto}
+@media (prefers-reduced-motion:reduce){.grupo>summary::after{transition:none}}
+.grupo>summary small{font-family:var(--f-texto);font-size:.8rem;font-weight:400;color:var(--poeira);align-self:center}
+.grupo>.lista{border-radius:0;margin:0}
+.lista small{color:var(--poeira);font-weight:400;font-size:.78rem}
+
+.roda{position:relative;width:min(100%,320px);aspect-ratio:1;margin:0 auto;touch-action:none}
+.roda canvas{width:100%;height:100%;display:block;border-radius:50%;cursor:crosshair}
+.mira{position:absolute;width:26px;height:26px;border-radius:50%;border:3px solid #fff;box-shadow:0 0 0 1px #000;transform:translate(-50%,-50%);pointer-events:none}
+.mira.h{width:18px;height:18px;border-width:2px}
+.roda .mira{transition:left .15s,top .15s}
+.harm{display:flex;flex-wrap:wrap;gap:6px;margin:0 0 10px}
+.harm button{min-height:40px;padding:6px 12px;font-size:.86rem;border-radius:999px}
+.harm button[aria-pressed=true]{background:var(--giz);color:var(--coxia)}
+.combo{display:grid;grid-template-columns:repeat(auto-fit,minmax(74px,1fr));gap:8px;margin:10px 0 4px}
+.combo button{min-height:78px;border-radius:12px;padding:0;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.combo button span{font-size:.7rem;background:rgba(22,20,29,.82);width:100%;padding:3px 0;line-height:1.25;font-variant-numeric:tabular-nums}
+.combo button.base{box-shadow:0 0 0 3px var(--giz)}
+.amostra{display:grid;grid-template-columns:90px 1fr;gap:14px}
+.chip{border-radius:14px;min-height:90px;box-shadow:inset 0 0 0 1px rgba(255,255,255,.12)}
+.codigos{display:grid;grid-template-columns:auto 1fr;gap:3px 12px;font-variant-numeric:tabular-nums;font-size:.92rem;align-content:center;margin:0}
+.codigos dt{color:var(--poeira)}.codigos dd{margin:0}
+input[type=range]{width:100%;accent-color:var(--giz)}
+.paleta{display:grid;grid-template-columns:repeat(auto-fill,minmax(64px,1fr));gap:8px}
+.paleta button{min-height:60px;border-radius:12px;padding:0;flex-direction:column;justify-content:flex-end;overflow:hidden}
+.paleta button span{font-size:.68rem;background:rgba(22,20,29,.82);width:100%;padding:2px 0}
+details{background:var(--case);border-radius:14px;padding:12px 14px}
+details summary{cursor:pointer;font-weight:600}
+details>*+*{margin-top:8px}
+.fontes{font-size:.8rem;color:var(--poeira);display:flex;flex-direction:column;gap:4px}
+.fontes a{color:var(--poeira)}
+.topoDir{display:flex;flex-direction:column;align-items:flex-end;gap:6px;min-width:0}
+@media (max-width:430px){.topoDir{align-items:flex-start}}
+.btnDicas{min-height:32px;padding:4px 12px;font-size:.78rem;border-radius:999px}
+.btnDicas[aria-pressed=true]{background:var(--luz);color:#1a1410;border-color:transparent}
+body.comGuia .app{padding-bottom:260px}
+.guiaBox{position:fixed;left:0;right:0;bottom:0;z-index:50;display:flex;justify-content:center;padding:0 12px 12px;pointer-events:none}
+.guiaCard{pointer-events:auto;width:min(100%,560px);background:#2a2433;border-radius:18px;box-shadow:0 0 0 1px var(--luz),0 -10px 40px rgba(0,0,0,.6);padding:14px 16px 12px;display:flex;flex-direction:column;gap:8px}
+.guiaCard .gTopo{display:flex;justify-content:space-between;align-items:center;gap:8px;font-size:.78rem;color:var(--poeira)}
+.guiaCard .gTopo button{min-height:30px;padding:2px 10px;font-size:.76rem;background:none}
+.guiaCard h3{margin:0;font-family:var(--f-leitura);font-size:1.5rem;color:var(--luz);line-height:1.05}
+.guiaCard p{margin:0;font-size:.95rem;line-height:1.4}
+.guiaCard .gBar{height:4px;background:var(--fita);border-radius:4px;overflow:hidden}.guiaCard .gBar i{display:block;height:100%;background:var(--luz)}
+.guiaCard .gAcoes{display:flex;gap:8px}.guiaCard .gAcoes button{flex:1;min-height:44px}
+.guiaCard.mini{padding:8px 14px;flex-direction:row;align-items:center;justify-content:space-between}
+.guiaCard.mini>:not(.gTopo){display:none}.guiaCard.mini .gTopo{flex:1}
+.vivo{position:fixed;inset:0;z-index:70;background:#000;display:flex;flex-direction:column}
+.vivo video{position:absolute;inset:0;width:100%;height:100%;object-fit:cover}
+.vAlvo{position:absolute;left:50%;top:50%;width:min(36vw,36vh);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:4px solid var(--luz);box-shadow:0 0 0 2000px rgba(0,0,0,.35)}
+.vivo.pronto .vAlvo{border-color:var(--ok)}
+.vTopo{position:relative;display:flex;justify-content:space-between;padding:12px}.vTopo button{min-height:40px;background:rgba(22,20,29,.8)}
+.vConta{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--f-leitura);font-size:7rem;color:#fff;text-shadow:0 2px 16px #000;pointer-events:none}
+.vBase{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 24px;background:linear-gradient(transparent,rgba(0,0,0,.85) 30%);display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
+.vBase p{margin:0;font-size:1.35rem;font-weight:600;color:#fff;max-width:28ch}
+.vBase button{min-height:44px;background:rgba(22,20,29,.8)}
+.medBox{position:fixed;inset:0;z-index:60;background:rgba(10,8,14,.78);display:flex;align-items:flex-end;justify-content:center;padding:12px}
+.medCard{width:min(100%,560px);max-height:calc(100vh - 24px);overflow:auto;background:#2a2433;border-radius:20px;box-shadow:0 0 0 1px var(--luz);padding:16px;display:flex;flex-direction:column;gap:10px}
+.medCard .gTopo{display:flex;justify-content:space-between;align-items:center;font-size:.78rem;color:var(--poeira)}
+.medCard .gTopo button{min-height:30px;padding:2px 10px;font-size:.76rem;background:none}
+.medCard h3{margin:0;font-family:var(--f-leitura);font-size:1.6rem;color:var(--luz);line-height:1.05}
+.medCard p{margin:0;line-height:1.45}
+.medCard ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:6px;line-height:1.4}
+.medCard a{color:var(--luz)}
+.medOpc{display:grid;gap:8px}.medOpc button{min-height:56px;justify-content:flex-start;text-align:left;flex-direction:column;align-items:flex-start;gap:2px}
+.medOpc button small{color:var(--poeira);font-weight:400;font-size:.8rem}
+.medOpc button[aria-pressed=true]{box-shadow:inset 0 0 0 2px var(--luz)}
+.medAcoes{display:flex;gap:8px}.medAcoes button{flex:1;min-height:48px}
+.medAviso{border-radius:12px;padding:10px 12px;background:rgba(242,196,109,.14);box-shadow:inset 0 0 0 1px var(--atencao)}
+.medOk{border-radius:12px;padding:10px 12px;background:rgba(127,214,164,.14);box-shadow:inset 0 0 0 1px var(--ok);font-size:1.3rem;font-weight:600}
+.alvoGuia{outline:3px solid var(--luz);outline-offset:4px;border-radius:12px;animation:pulso 1.4s ease-in-out 3}
+@keyframes pulso{50%{outline-color:transparent}}
+@media (prefers-reduced-motion:reduce){.alvoGuia{animation:none}}
+@media (max-width:380px){.leitura .val{font-size:2.2rem}.abas button{font-size:.76rem}}
+</style>
+
+<div class="app">
+  <header>
+    <h1>Fotômetro de Palco</h1>
+    <div class="topoDir"><span class="modo" id="resumoTopo"></span><button type="button" class="btnDicas" id="btnDicas" aria-pressed="true">Dicas ligadas</button></div>
+  </header>
+
+  <nav class="abas" role="tablist" aria-label="Etapas">
+    <button role="tab" id="t-montar" aria-selected="true" aria-controls="p-montar">Montar</button>
+    <button role="tab" id="t-aparelhos" aria-selected="false" aria-controls="p-aparelhos">Aparelhos</button>
+    <button role="tab" id="t-mesa" aria-selected="false" aria-controls="p-mesa">Mesa</button>
+    <button role="tab" id="t-aferir" aria-selected="false" aria-controls="p-aferir">Aferir</button>
+    <button role="tab" id="t-cores" aria-selected="false" aria-controls="p-cores">Cores</button>
+  </nav>
+
+  <!-- MONTAR -->
+  <section role="tabpanel" id="p-montar" aria-labelledby="t-montar">
+    <p class="guia">Preencha os três passos com o que você vê no local. O cálculo embaixo atualiza na hora e diz zoom, intensidade e cor de partida para cada aparelho.</p>
+
+    <div class="passo">
+      <span class="n" aria-hidden="true">1</span>
+      <h2>Qual aparelho</h2>
+      <div class="corpo">
+        <div class="campos">
+          <div class="campo inteiro"><label for="fab">Fabricante</label><select id="fab"></select></div>
+          <div class="campo inteiro"><label for="fx">Modelo</label><select id="fx"></select></div>
+          <div class="campo"><label for="qtd">Quantidade</label><input id="qtd" type="number" min="1" max="60" value="12" inputmode="numeric"></div>
+          <div class="campo"><label for="fid">ID do primeiro na mesa</label><input id="fid" type="number" min="1" value="101" inputmode="numeric"></div>
+        </div>
+        <div class="ficha" id="ficha"></div>
+      </div>
+    </div>
+
+    <div class="passo">
+      <span class="n" aria-hidden="true">2</span>
+      <h2>Onde ele está</h2>
+      <div class="corpo">
+        <div class="campos">
+          <div class="campo"><label for="alt">Altura da vara (m)</label><input id="alt" type="number" step="0.1" value="7" inputmode="decimal"></div>
+          <div class="campo"><label for="dist">Distância até a boca de cena (m)</label><input id="dist" type="number" step="0.1" value="6" inputmode="decimal"></div>
+          <div class="campo"><label for="prof">Onde fica o artista, a partir da boca (m)</label><input id="prof" type="number" step="0.1" value="2" inputmode="decimal"></div>
+          <div class="campo"><label for="larg">Largura a cobrir (m)</label><input id="larg" type="number" step="0.5" value="12" inputmode="decimal"></div>
+        </div>
+        <p class="nota">Vara na plateia: distância positiva. A altura do rosto é considerada 1,6 m.</p>
+      </div>
+    </div>
+
+    <div class="passo">
+      <span class="n" aria-hidden="true">3</span>
+      <h2>Que luz você quer</h2>
+      <div class="corpo">
+        <div class="campos">
+          <div class="campo"><label for="kAlvo">Temperatura (K)</label>
+            <select id="kAlvo"><option>3200</option><option>4300</option><option selected>5600</option><option>6000</option></select></div>
+          <div class="campo"><label for="luxAlvo">Luz no rosto (lux)</label><input id="luxAlvo" type="number" step="50" value="1200" inputmode="numeric"></div>
+        </div>
+        <details>
+          <summary>Não sei quantos lux, calcular pela câmera</summary>
+          <p class="nota">Informe como a câmera principal vai trabalhar. O app converte em lux de luz incidente no rosto.</p>
+          <div class="campos">
+            <div class="campo"><label for="camF">Abertura f/</label><input id="camF" type="number" step="0.1" value="4" inputmode="decimal"></div>
+            <div class="campo"><label for="camT">Obturador 1/</label><input id="camT" type="number" value="50" inputmode="numeric"></div>
+            <div class="campo"><label for="camIso">ISO</label><input id="camIso" type="number" value="400" inputmode="numeric"></div>
+            <div class="campo" style="justify-content:flex-end"><button type="button" id="btnCam">Usar <span id="camLux">–</span> lux</button></div>
+          </div>
+        </details>
+      </div>
+    </div>
+
+    <div class="result" id="resultBox" aria-live="polite">
+      <div class="cab"><h2>Ponto de partida</h2></div>
+      <div class="leituras">
+        <div class="leitura"><div class="rot">Zoom</div><div class="val"><span id="rZoom">–</span><small>°</small></div><div class="sub" id="rDiam">–</div></div>
+        <div class="leitura"><div class="rot">Intensidade</div><div class="val"><span id="rDim">–</span><small>%</small></div><div class="sub" id="rLux">–</div></div>
+        <div class="leitura k"><div class="rot" id="rCorRot">Cor</div><div class="val" id="rCorVal"></div><div class="sub" id="rCorSub">–</div></div>
+        <div class="leitura"><div class="rot">Distância de tiro</div><div class="val"><span id="rTiro">–</span><small>m</small></div><div class="sub" id="rAng">–</div></div>
+      </div>
+      <svg class="corte" id="corte" viewBox="0 0 360 150" role="img" aria-label="Corte lateral com a vara, o feixe e o artista"></svg>
+      <div class="avisos" id="avisos"></div>
+    </div>
+    <button type="button" class="primario" id="irMesa">Levar para a mesa</button>
+  </section>
+
+  <!-- APARELHOS -->
+  <section role="tabpanel" id="p-aparelhos" aria-labelledby="t-aparelhos" hidden>
+    <h2>Biblioteca de aparelhos</h2>
+    <p class="guia">Toque num aparelho para ver os dados e medir o perfil de cor. Se o refletor do local não estiver na lista, cadastre ele aqui e ele passa a valer em todas as abas.</p>
+    <div class="campos">
+      <div class="campo inteiro"><label for="fBusca">Buscar</label><input id="fBusca" type="text" placeholder="Modelo ou fabricante" autocomplete="off"></div>
+      <div class="campo"><label for="fFab">Fabricante</label><select id="fFab"></select></div>
+      <div class="campo"><label for="fCor">Sistema de cor</label><select id="fCor"><option value="">Todos</option><option value="cto">CTO ou CTB</option><option value="cct">Canal de temperatura</option><option value="cmy">CMY</option><option value="rgb">LED RGB ou RGBW</option></select></div>
+      <div class="campo inteiro"><label for="fOrig">Mostrar</label><select id="fOrig"><option value="">Todos os aparelhos</option><option value="fab">Só fichas de fabricante</option><option value="meus">Só os que eu cadastrei</option><option value="perfil">Só os com perfil de cor medido</option><option value="luz">Só os com dados de luz</option></select></div>
+    </div>
+    <p class="nota" id="fConta"></p>
+    <div id="lista"></div>
+    <button type="button" id="btnNovo">Cadastrar aparelho</button>
+    <p class="nota" id="msgBib"></p>
+
+    <form class="cartao" id="fCad" hidden>
+      <h2 id="cadTitulo">Novo aparelho</h2>
+      <div class="campos">
+        <div class="campo"><label for="cMarca">Fabricante</label><input id="cMarca" type="text" required placeholder="Ex.: Beam Tech" list="marcas"><datalist id="marcas"></datalist></div>
+        <div class="campo"><label for="cModelo">Modelo</label><input id="cModelo" type="text" required placeholder="Ex.: Spot 400 Pro"></div>
+        <div class="campo"><label for="cPot">Potência (W)</label><input id="cPot" type="number" inputmode="numeric" placeholder="400"></div>
+        <div class="campo"><label for="cLm">Lúmens (se souber)</label><input id="cLm" type="number" inputmode="numeric" placeholder="15000"></div>
+        <div class="campo"><label for="cZmin">Zoom mínimo (°)</label><input id="cZmin" type="number" step="0.1" inputmode="decimal" placeholder="6"></div>
+        <div class="campo"><label for="cZmax">Zoom máximo (°)</label><input id="cZmax" type="number" step="0.1" inputmode="decimal" placeholder="45"></div>
+        <div class="campo"><label for="cCor">Como ele faz a cor</label>
+          <select id="cCor">
+            <option value="cto">CTO variável</option>
+            <option value="ctb">CTB variável</option>
+            <option value="cct">Canal de temperatura (LED)</option>
+            <option value="cmy">CMY</option>
+            <option value="rgb">LED RGB</option>
+            <option value="rgbw">LED RGBW</option>
+          </select></div>
+        <div class="campo"><label for="cKnat">Branco nativo (K)</label><input id="cKnat" type="number" inputmode="numeric" placeholder="6500"></div>
+        <div class="campo"><label for="cKmin">Temperatura mais quente (K)</label><input id="cKmin" type="number" inputmode="numeric" placeholder="se souber"></div>
+        <div class="campo"><label for="cKmax">Temperatura mais fria (K)</label><input id="cKmax" type="number" inputmode="numeric" placeholder="se souber"></div>
+      </div>
+      <details>
+        <summary>Não sei os lúmens, medir agora</summary>
+        <p class="nota">Acenda só esse aparelho a 100%, sem cor, com o zoom num valor conhecido. Meça a luz no centro do foco a uma distância medida e informe aqui. Pode usar a aba Aferir ou um luxímetro.</p>
+        <div class="campos">
+          <div class="campo"><label for="cMlux">Lux no centro</label><input id="cMlux" type="number" inputmode="numeric"></div>
+          <div class="campo"><label for="cMdist">Distância (m)</label><input id="cMdist" type="number" step="0.1" inputmode="decimal"></div>
+          <div class="campo"><label for="cMzoom">Zoom usado (°)</label><input id="cMzoom" type="number" step="0.1" inputmode="decimal"></div>
+        </div>
+      </details>
+      <p class="nota" id="msgCad"></p>
+      <div class="acoes">
+        <button type="submit" class="primario">Salvar na biblioteca</button>
+        <button type="button" id="btnCancelaCad">Cancelar</button>
+      </div>
+    </form>
+
+    <div class="cartao" id="detalhe"></div>
+
+    <div class="cartao" id="perfilBox">
+      <h2>Perfil de cor</h2>
+      <div id="sisPerfilBox"></div>
+      <div class="campos"><div class="campo"><label for="idTeste">Aparelho de teste (ID na mesa)</label><input id="idTeste" type="number" inputmode="numeric"></div></div>
+      <p class="nota">Use um aparelho só. O perfil vale para todos desse modelo, em qualquer show. Embaixo de cada medida estão os comandos para digitar na grandMA2, uma linha por vez.</p>
+      <p class="guia" id="perfilGuia"></p>
+      <details>
+        <summary>Como medir sem errar</summary>
+        <ol class="passos">
+          <li>Use um aparelho só, na mesma distância, medindo sempre com a mesma referência (cartão cinza, sulfite branca ou difusor). Escolha a referência em cima do visor.</li>
+          <li>No celular, use o modo Pro ou Manual com balanço de branco fixo (5500 K, por exemplo). Com balanço automático o celular neutraliza a cor e o perfil sai errado.</li>
+          <li>Trave a exposição se o modo permitir. Se a foto trouxer abertura, tempo e ISO, o app compensa sozinho.</li>
+          <li>Faça todas as medidas na mesma sessão, sem mexer no dimmer nem no zoom.</li>
+        </ol>
+      </details>
+      <div id="visorAqui1"></div>
+      <div class="tabwrap"><table id="tabPerfil" aria-label="Medidas do perfil"></table></div>
+      <div class="acoes">
+        <button type="button" class="primario" id="btnSalvaPerfil">Salvar perfil</button>
+        <button type="button" id="btnApagaPerfil">Apagar perfil</button>
+      </div>
+      <p class="nota" id="msgPerfil"></p>
+    </div>
+  </section>
+
+  <!-- MESA -->
+  <section role="tabpanel" id="p-mesa" aria-labelledby="t-mesa" hidden>
+    <h2>Presets na grandMA2</h2>
+    <p class="guia">O plugin cria um preset de cor e um de intensidade com os valores calculados para os aparelhos da sua lista. Depois da aferição ele é gerado de novo com a correção de cada aparelho.</p>
+    <div class="campos">
+      <div class="campo"><label for="pCor">Preset de cor (4.x)</label><input id="pCor" type="number" value="21" inputmode="numeric"></div>
+      <div class="campo"><label for="pDim">Preset de intensidade (1.x)</label><input id="pDim" type="number" value="21" inputmode="numeric"></div>
+    </div>
+    <h3>Nomes dos atributos na mesa</h3>
+    <div class="campos" id="atrs"></div>
+    <p class="nota">Confira os nomes no perfil do aparelho (Fixture Sheet). Mudam conforme a biblioteca usada no patch.</p>
+    <div class="acoes">
+      <button type="button" class="primario" id="btnZip">Baixar plugin (.zip)</button>
+      <button type="button" id="btnCopiar">Copiar comandos</button>
+    </div>
+    <p class="nota" id="msgMesa"></p>
+    <ol class="passos">
+      <li>Descompacte o .zip na raiz do pendrive. Ele cria a pasta gma2/plugins.</li>
+      <li>Na mesa, abra o pool de Plugins, toque num espaço vazio e escolha Import. Selecione Fotometro.</li>
+      <li>Rode o plugin. Ele pede confirmação, cria os presets e limpa o programmer.</li>
+      <li>Antes do primeiro show, teste no grandMA2 onPC com o mesmo patch.</li>
+    </ol>
+    <pre id="cmds" aria-label="Comandos gerados"></pre>
+  </section>
+
+  <!-- AFERIR -->
+  <section role="tabpanel" id="p-aferir" aria-labelledby="t-aferir" hidden>
+    <h2>Aferir no palco</h2>
+    <p class="guia">Com o preset no palco, fique na marcação de cada linha, na altura do rosto, e meça com a referência escolhida em cima do visor. Os pontos entre dois focos mostram se a cobertura emenda.</p>
+    <div id="visorAqui2"></div>
+    <div class="campos">
+      <div class="campo"><label for="tol">Tolerância de luz</label><select id="tol"><option value="0.333">1/3 stop</option><option value="0.5" selected>1/2 stop</option><option value="1">1 stop</option></select></div>
+      <div class="campo"><label for="tolK">Tolerância de cor</label><select id="tolK"><option value="10">10 mired</option><option value="15" selected>15 mired</option><option value="25">25 mired</option></select></div>
+    </div>
+    <div class="tabwrap"><table id="tabPontos" aria-label="Pontos de aferição"></table></div>
+    <div class="correcao" id="correcao"></div>
+    <div class="acoes">
+      <button type="button" class="primario" id="btnAplicar">Aplicar correções no plugin</button>
+      <button type="button" id="btnZerarMed">Apagar medições</button>
+    </div>
+    <details>
+      <summary>Calibrar o celular</summary>
+      <p class="nota">Mesmo com balanço de branco fixo, cada celular enxerga a cor de um jeito. Meça uma fonte de temperatura conhecida, informe o valor real e o app guarda a correção neste aparelho. Com um luxímetro ao lado, faça o mesmo para lux.</p>
+      <div class="campos">
+        <div class="campo"><label for="kReal">A fonte medida tem (K)</label><input id="kReal" type="number" inputmode="numeric" placeholder="5600"></div>
+        <div class="campo" style="justify-content:flex-end"><button type="button" id="btnCalK">Calibrar cor</button></div>
+        <div class="campo"><label for="luxReal">O luxímetro marca (lux)</label><input id="luxReal" type="number" inputmode="numeric" placeholder="1200"></div>
+        <div class="campo" style="justify-content:flex-end"><button type="button" id="btnCalLux">Calibrar lux</button></div>
+      </div>
+      <h3>Calibrar o difusor sem luxímetro</h3>
+      <p class="nota">Cada difusor deixa passar uma quantidade diferente de luz. Debaixo de uma luz que não muda, meça primeiro o cartão ou a sulfite e depois o difusor, do mesmo lugar. O app compara as duas e guarda o fator do difusor.</p>
+      <div class="campos">
+        <div class="campo"><label for="difComp">Comparar com</label><select id="difComp"><option value="sulfite">Folha sulfite branca</option><option value="cinza">Cartão cinza 18%</option></select></div>
+        <div class="campo" style="justify-content:flex-end"><button type="button" id="btnCalDif">1. Medir a referência</button></div>
+      </div>
+      <div class="acoes"><button type="button" id="btnZerarCal">Apagar calibração</button></div>
+      <p class="nota" id="calInfo"></p>
+    </details>
+  </section>
+
+  <!-- CORES -->
+  <section role="tabpanel" id="p-cores" aria-labelledby="t-cores" hidden>
+    <h2>Círculo cromático</h2>
+    <p class="guia">Toque no círculo para escolher a cor e guarde as que vão entrar no show. Cada fatia é um matiz; do centro para a borda a cor fica mais saturada.</p>
+    <div class="harm" id="modoRoda" role="group" aria-label="Tipo de círculo"><button type="button" data-m="luz">Luz (RGB)</button><button type="button" data-m="pintor">Pintor (RYB)</button></div>
+    <p class="nota" id="modoNota"></p>
+    <div class="roda"><canvas id="cRoda" width="640" height="640" aria-label="Círculo cromático"></canvas><div class="mira" id="mira"></div><div id="mirasH"></div></div>
+    <div class="campo"><label for="brilho">Intensidade <span id="vBrilho">100%</span></label><input type="range" id="brilho" min="0" max="100" value="100"></div>
+    <h3>Combinações</h3>
+    <div class="harm" id="harm" role="group" aria-label="Tipo de combinação">
+      <button type="button" data-h="nenhuma">Só esta</button><button type="button" data-h="analogas">Análogas</button><button type="button" data-h="complementar">Complementar</button>
+      <button type="button" data-h="dividida">Complementar dividida</button><button type="button" data-h="triade">Tríade</button><button type="button" data-h="quadrado">Quadrado</button><button type="button" data-h="tons">Tons</button>
+    </div>
+    <div class="campo" id="abreBox"><label for="abre">Abertura <span id="vAbre">30°</span></label><input type="range" id="abre" min="15" max="60" step="15" value="30"></div>
+    <div class="combo" id="combo"></div>
+    <p class="nota" id="harmNota"></p>
+    <div class="amostra">
+      <div class="chip" id="chip"></div>
+      <dl class="codigos">
+        <dt>HEX</dt><dd id="cHex">–</dd>
+        <dt>RGB / DMX</dt><dd id="cRgb">–</dd>
+        <dt>CMY</dt><dd id="cCmy">–</dd>
+        <dt>HSB</dt><dd id="cHsv">–</dd>
+      </dl>
+    </div>
+    <p class="nota">O CMY aqui é a conversão direta da cor na tela. Cada aparelho mistura de um jeito, então use como ponto de partida e ajuste olhando o palco.</p>
+    <div class="acoes"><button type="button" class="primario" id="btnGuardar">Guardar na paleta</button><button type="button" id="btnGuardarCombo">Guardar combinação</button></div>
+    <h3>Paleta do show</h3>
+    <div class="paleta" id="paleta"></div>
+  </section>
+
+  <details>
+    <summary>De onde vêm os dados dos aparelhos</summary>
+    <div class="fontes" id="fontes"></div>
+  </details>
+
+  <div id="visorBox">
+    <div class="refbox">
+      <div class="campo"><label for="ref">Referência de medida</label><select id="ref">
+        <option value="cinza">Cartão cinza 18%</option><option value="sulfite">Folha sulfite branca</option><option value="difusor">Difusor na câmera (luz incidente)</option></select></div>
+      <p class="nota" id="refGuia"></p>
+    </div>
+    <div class="visor">
+      <canvas id="tela" width="640" height="480"></canvas>
+      <div class="spot" aria-hidden="true"></div>
+      <span class="selo" id="selo">Escolha uma linha e toque em Medir</span>
+    </div>
+  </div>
+  <input type="file" id="foto" accept="image/*" capture="environment">
+  <div class="vivo" id="vivo" hidden>
+    <video id="vVideo" playsinline muted></video><div class="vAlvo" id="vAlvo" aria-hidden="true"></div>
+    <div class="vTopo"><button type="button" id="vFecha">Cancelar</button><button type="button" id="vVoz">Voz ligada</button></div>
+    <div class="vConta" id="vConta" aria-live="assertive"></div>
+    <div class="vBase"><p id="vMsg" aria-live="polite"></p><button type="button" id="vAgora">Medir agora</button></div>
+  </div>
+  <div class="medBox" id="medBox" hidden><div class="medCard" role="dialog" aria-modal="true" aria-labelledby="mTit">
+    <div class="gTopo"><span id="mConta"></span><button type="button" id="mFecha">Cancelar</button></div>
+    <h3 id="mTit"></h3><div id="mCorpo" style="display:flex;flex-direction:column;gap:10px"></div>
+  </div></div>
+  <div class="guiaBox" id="guiaBox" hidden><div class="guiaCard" id="guiaCard" role="region" aria-label="Dicas passo a passo" aria-live="polite">
+    <div class="gTopo"><span id="gConta"></span><span><button type="button" id="gMini">Minimizar</button><button type="button" id="gDesliga">Desligar dicas</button></span></div>
+    <div class="gBar"><i id="gBar"></i></div>
+    <h3 id="gTit"></h3><p id="gTxt"></p>
+    <div class="gAcoes"><button type="button" id="gVolta">Voltar</button><button type="button" class="primario" id="gVai">Próximo</button></div>
+  </div></div>
+</div>
+
+<script>
+(()=>{
+const $=id=>document.getElementById(id);
+const store={get(k,d){try{const v=localStorage.getItem(k);return v?JSON.parse(v):d}catch(e){return d}},set(k,v){try{localStorage.setItem(k,JSON.stringify(v))}catch(e){}},del(k){try{localStorage.removeItem(k)}catch(e){}}};
+const nf=(n,d=0)=>Number(n).toLocaleString('pt-BR',{minimumFractionDigits:d,maximumFractionDigits:d});
+const clamp=(v,a,b)=>Math.max(a,Math.min(b,v));
+const rad=d=>d*Math.PI/180, deg=r=>r*180/Math.PI;
+const esc=s=>String(s??'').replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));
+
+/* ---------- biblioteca de fábrica (fichas oficiais e medições publicadas) ----------
+   pts: [ângulo de zoom em graus, candela no centro], quando a ficha traz lux medido.
+   cor: cto | ctb | cct | cmy | rgb | rgbw */
+const FABRICA=[
+ {id:'rivale',marca:'Ayrton',modelo:'Rivale Profile',pot:450,zoom:[4,52],lm:28700,
+  pts:[[4,110063*25],[19.96,15199*25],[52,1715*25]],kNat:6500,cor:'cto',kMin:2700,cri:'70 a 86 (variável)',
+  fonte:'Ficha técnica Ayrton (tabela de lux em modo Auto)',url:'https://azur.novelty.fr/wp-content/uploads/2025/07/RivaleProfile-Specification-Sheet.pdf',
+  obs:'O site da Ayrton cita CTO até 2900 K e a ficha cita 2700 K. O aparelho também tem CMY.'},
+ {id:'esprite-hp',marca:'Robe',modelo:'ESPRITE (motor HP)',zoom:[5.5,50],lm:27000,pts:[[5.5,85000*25]],kNat:6700,cor:'cto',kMin:3000,cri:'70, filtros para 80 e 90',
+  fonte:'Ficha técnica Robe (85.000 lx a 5 m, lúmens em goniofotômetro)',url:'https://occitanie.novelty-group.com/download/materiel_fiches_techniques/10809-4190-651.pdf'},
+ {id:'esprite-hcf',marca:'Robe',modelo:'ESPRITE (motor HCF)',zoom:[5.5,50],lm:19000,pts:[[5.5,59000*25]],kNat:6000,cor:'cto',kMin:3000,cri:'96, TLCI 97',
+  fonte:'Ficha técnica Robe (59.000 lx a 5 m, lúmens em goniofotômetro)',url:'https://occitanie.novelty-group.com/download/materiel_fiches_techniques/10809-4190-651.pdf'},
+ {id:'forte-hp',marca:'Robe',modelo:'FORTE (motor HP)',pot:1000,zoom:[5,55],lm:40000,pts:[[5,113000*25]],kNat:6700,cor:'cto',kMin:3000,cri:'70, filtros para 80 e 90',
+  fonte:'Ficha técnica Robe (113.000 lx a 5 m, lúmens em goniofotômetro)',url:'https://cdn.aws.robe.cz/print/en_product_4220.pdf',obs:'Também tem CMY.'},
+ {id:'forte-hcf',marca:'Robe',modelo:'FORTE (motor HCF)',pot:1000,zoom:[5,55],lm:28000,pts:[[5,78000*25]],kNat:6000,cor:'cto',kMin:3000,cri:'96, TLCI 97',
+  fonte:'Ficha técnica Robe (78.000 lx a 5 m, lúmens em goniofotômetro)',url:'https://cdn.aws.robe.cz/print/en_product_4220.pdf',obs:'Também tem CMY. O FORTE padrão (HP) não tem os mesmos índices de cor.'},
+ {id:'painte-hp',marca:'Robe',modelo:'PAINTE (motor HP)',pot:310,zoom:[8,48],lm:12250,pts:[[8,23485*25]],kNat:6700,cor:'cto',kMin:null,cri:'70, filtro para 90',
+  fonte:'Ficha técnica Robe (23.485 lx a 5 m, lúmens em goniofotômetro)',url:'https://cdn.aws.robe.cz/print/en_product_4887.pdf',obs:'Tem CMY e CTO virtual, mas a Robe não publica a faixa do CTO. Meça o perfil de cor na aba Aparelhos.'},
+ {id:'painte-hcf',marca:'Robe',modelo:'PAINTE (motor HCF)',pot:310,zoom:[8,48],lm:7800,pts:[[8,15289*25]],kNat:6000,cor:'cto',kMin:null,cri:'96, TLCI 97',
+  fonte:'Ficha técnica Robe (15.289 lx a 5 m, lúmens em goniofotômetro)',url:'https://cdn.aws.robe.cz/print/en_product_4887.pdf',obs:'Tem CMY e CTO virtual, mas a Robe não publica a faixa do CTO. Meça o perfil de cor na aba Aparelhos.'},
+ {id:'t1',marca:'Robe',modelo:'T1 Profile',pot:550,zoom:[7,49],lm:10075,kNat:5600,cor:'cct',kMin:2700,kMax:8000,cri:'95, TLCI 94',
+  fonte:'Ficha técnica Robe (lúmens em goniofotômetro, CCT variável)',url:'https://cdn.aws.robe.cz/print/en_product_654.pdf'},
+ {id:'era800',marca:'Martin',modelo:'ERA 800 Performance',pot:800,zoom:[5.9,62],lm:36153,lmNarrow:14287,kNat:6750,cor:'cto',kMin:3318,cri:'72',
+  fonte:'Medição publicada por Mike Wood (lúmens no zoom aberto e fechado, faixa do CTO)',url:'https://www.mikewoodconsulting.com/articles/MartinERA800.pdf'},
+ {id:'encore-cld',marca:'Martin',modelo:'MAC Encore Performance CLD',pot:468,zoom:[12,48],lm:11600,kNat:6000,cor:'cto',kMin:2700,cri:'80+, TLCI 70+',
+  fonte:'Ficha técnica Martin',url:'https://goknight.com/content/documentation/MAC_Encore_SpecSheet.pdf'},
+ {id:'encore-wrm',marca:'Martin',modelo:'MAC Encore Performance WRM',pot:468,zoom:[12,48],lm:9200,kNat:3000,cor:'ctb',kMax:7000,cri:'90+, TLCI 90+',
+  fonte:'Ficha técnica Martin',url:'https://goknight.com/content/documentation/MAC_Encore_SpecSheet.pdf'},
+ {id:'sinfonya600',marca:'Claypaky',modelo:'Sinfonya Profile 600',pot:600,zoom:[5,60],lm:12050,kNat:5600,cor:'cct',kMin:2500,kMax:8500,cri:'até 95',
+  fonte:'Ficha Claypaky 11/2022 (lúmens em esfera integradora, temperatura 2500 a 8500 K)',url:'https://goknight.com/content/documentation/SinfonyaProfile600_DataSheet_11.2022.pdf',
+  obs:'Motor RGBAL com CTO virtual. Algumas fontes citam até 10.000 K; a ficha de 2022 diz 8.500 K.'},
+ {id:'solaframe-theatre',marca:'High End Systems',modelo:'SolaFrame Theatre',pot:440,zoom:[7,42],lm:15000,pts:[[7,58670*3.048*3.048],[42,4850*3.048*3.048]],kNat:6000,cor:'cto',kMin:2800,cri:'91 (R9 58), TLCI 89',
+  fonte:'Ficha técnica ETC / High End Systems (tabela de lux a 10 pés)',url:'https://www.highend.com/documentation/SolaFrame%20Theatre/SolaFrame-Theatre-TDS.pdf',obs:'Também tem CMY.'},
+ {id:'geist-bswf',marca:'ACME',modelo:'Geist BSWF',pot:450,zoom:[6.5,54],lm:20000,kNat:7000,cor:'cto',kMin:2700,cri:'mais de 70, modo HCRI acima de 90',
+  fonte:'Página oficial ACME (lúmens em modo padrão)',url:'https://en.acmelighting.com/item/GEIST-BSWF',obs:'Também tem CMY. No modo silencioso cai para 11.300 lm.'},
+ {id:'sanyi-king',marca:'Sanyi Lights',modelo:'King Profile 1400W IP65',pot:1400,zoom:[1,90],semZoom:true,lm:null,kNat:null,cor:'cto',kMin:null,cri:null,
+  fonte:'Folheto de divulgação Sanyi (sem lúmens, zoom ou faixa do CTO)',url:null,obs:'O folheto só informa potência e CMY + CTO. Toque em Copiar como base, informe o zoom e uma medida de luz, e meça o perfil de cor.'},
+ {id:'sanyi-super',marca:'Sanyi Lights',modelo:'Super Profile LED 1400W',pot:1400,zoom:[1,90],semZoom:true,lm:null,kNat:null,cor:'cto',kMin:null,cri:null,
+  fonte:'Folheto de divulgação Sanyi (sem lúmens, zoom ou faixa do CTO)',url:null,obs:'O folheto informa CMY, CTO, frame e disco com filtro de CRI. Toque em Copiar como base, informe o zoom e uma medida de luz, e meça o perfil de cor.'},
+ {id:'sanyi-wfw800b',marca:'Sanyi Lights',modelo:'Wind Fire Wheel 800B',pot:920,zoom:[4,47],lm:null,kNat:null,cor:'rgbw',cri:null,
+  fonte:'Folheto de divulgação Sanyi (1 LED de 200 W no centro e 6 de 120 W, sem lúmens)',url:null,obs:'Zoom do anel externo, 4 a 47°. O LED central tem zoom próprio de 4,5 a 28° e o app trata o aparelho como uma fonte só. Potência somada dos LEDs. Meça a luz e o perfil RGBW.'},
+ {id:'sanyi-wash1960',marca:'Sanyi Lights',modelo:'Wash Outdoor 1960W RGBW',pot:1960,zoom:[1,90],semZoom:true,lm:null,kNat:null,cor:'rgbw',cri:null,
+  fonte:'Folheto de divulgação Sanyi (sem lúmens nem zoom)',url:null,obs:'Copie como base, informe o zoom e uma medida de luz, e meça o perfil RGBW.'},
+ {id:'sanyi-bigwash',marca:'Sanyi Lights',modelo:'Big Wash 19×120W RGBW',pot:2100,zoom:[1,90],semZoom:true,lm:172000,lmDuvidoso:true,kNat:null,cor:'cct',kMin:2300,kMax:10000,cri:null,
+  fonte:'Folheto e vídeo de divulgação Sanyi (172.000 lm, CTO linear 2300 a 10000 K, zoom mínimo 2,5°)',url:null,obs:'Os 172.000 lm vêm do vídeo promocional e dão 82 lm por watt, alto para um wash RGBW. Provavelmente é a soma dos LEDs, não a saída pela lente, então a luz real deve ficar bem abaixo. O vídeo mostra zoom mínimo de 2,5°, mas não o máximo. Os 132 LEDs RGB do anel são efeito. Para branco de foto, use o canal de CTO linear (2300 a 10000 K): o próprio aparelho faz a mistura RGBW. Copie como base, informe o zoom e uma medida de luz, e meça o perfil desse canal.'},
+ {id:'arolla-mp',marca:'Claypaky',modelo:'Arolla Profile MP',pot:470,zoom:[6.2,48.8],lm:22000,kNat:6000,cor:'cto',kMin:null,cri:'70+, filtro para 88+',
+  fonte:'Ficha Claypaky (lúmens em esfera integradora)',url:'https://claypaky.it/products/arolla-profile-mp/claypaky_arollaprofilemp_en',
+  obs:'A Claypaky não publica a faixa do CTO em kelvin. Meça o perfil de cor na aba Aparelhos.'}
+];
+const NARROW_RATIO=0.4; // fração dos lúmens que sobra no zoom fechado quando a ficha não diz (Rivale e ERA 800 ficam perto disso)
+let CUSTOM={};  // aparelhos cadastrados: id -> objeto
+let PERFIS={};  // perfis de cor medidos: id do aparelho -> perfil
+const todos=()=>[...FABRICA,...Object.values(CUSTOM).sort((a,b)=>(a.marca+a.modelo).localeCompare(b.marca+b.modelo))];
+const achar=id=>FABRICA.find(f=>f.id===id)||CUSTOM[id]||FABRICA[0];
+const CANAIS={cto:['CTO'],ctb:['CTB'],cct:['CCT'],cmy:['C','M','Y'],rgb:['R','G','B'],rgbw:['R','G','B','W']};
+const NOME_SIS={cto:'CTO',ctb:'CTB',cct:'Canal de temperatura (CCT)',cmy:'CMY',rgb:'LED RGB',rgbw:'LED RGBW'};
+const sisDe=f=>(S.sis&&S.sis[f.id])||f.cor;
+const pkey=(f,s=sisDe(f))=>s===f.cor?f.id:f.id+'__'+s;
+function efetivo(f){const s=sisDe(f);if(s===f.cor)return{...f,pkey:f.id};return{...f,cor:s,kMin:null,kMax:null,pkey:pkey(f,s),sisAlt:true}}
+const temPerfil=f=>Object.keys(PERFIS).some(k=>k===f.id||k.startsWith(f.id+'__'));
+function sisSelect(id,f){const s=sisDe(f);return`<div class="campo"><label for="${id}">Trabalhar a cor por</label><select id="${id}" data-fx="${esc(f.id)}">${Object.keys(NOME_SIS).map(k=>`<option value="${k}" ${k===s?'selected':''}>${NOME_SIS[k]}${k===f.cor?' (sistema da ficha)':''}${PERFIS[pkey(f,k)]?', perfil medido':''}</option>`).join('')}</select></div>`}
+function ligarSis(id){const el=$(id);if(!el)return;el.onchange=()=>{const fx=el.dataset.fx;S.sis=S.sis||{};const f=achar(fx);if(el.value===f.cor)delete S.sis[fx];else S.sis[fx]=el.value;salvarS();
+  perfilRasc=null;ajuste=null;store.set('fot.ajuste3',null);medidas={};store.set('fot.medidas3',medidas);atualizarTudo()}}
+const NOME_CANAL={CTO:'CTO',CTB:'CTB',CCT:'CCT',C:'Ciano',M:'Magenta',Y:'Amarelo',R:'Vermelho',G:'Verde',B:'Azul',W:'Branco'};
+const ATR_PADRAO={CTO:'CTO',CTB:'CTB',CCT:'CTC',C:'COLORRGB1',M:'COLORRGB2',Y:'COLORRGB3',R:'COLORRGB1',G:'COLORRGB2',B:'COLORRGB3',W:'COLORRGB5',DIM:'DIM'};
+
+/* ---------- fotometria ---------- */
+const solid=a=>2*Math.PI*(1-Math.cos(rad(a/2)));
+function candela(f,ang){
+  ang=clamp(ang,f.zoom[0],f.zoom[1]);const span=f.zoom[1]-f.zoom[0];
+  const lmAt=a=>{const ln=f.lmNarrow||f.lm*NARROW_RATIO,t=span?(a-f.zoom[0])/span:1;return ln+(f.lm-ln)*t};
+  let P=(f.pts||[]).slice();
+  if(f.lm){
+    if(P.length<2&&!P.some(p=>Math.abs(p[0]-f.zoom[1])<.5))P.push([f.zoom[1],lmAt(f.zoom[1])/solid(f.zoom[1])]);
+    if(P.length<2&&!P.some(p=>Math.abs(p[0]-f.zoom[0])<.5))P.unshift([f.zoom[0],lmAt(f.zoom[0])/solid(f.zoom[0])]);
+  }
+  if(!P.length)return null;
+  if(P.length===1){const[a0,i0]=P[0];return i0*solid(a0)/solid(ang)} // um ponto só: mesma luz espalhada
+  P.sort((a,b)=>a[0]-b[0]);
+  if(ang<=P[0][0])return P[0][1];
+  for(let i=0;i<P.length-1;i++){const[a0,i0]=P[i],[a1,i1]=P[i+1];
+    if(ang<=a1){const t=(Math.log(ang)-Math.log(a0))/(Math.log(a1)-Math.log(a0)||1);return Math.exp(Math.log(i0)+t*(Math.log(i1)-Math.log(i0)))}}
+  return P[P.length-1][1]}
+
+/* ---------- colorimetria ---------- */
+const lin=c=>{c/=255;return c<=0.04045?c/12.92:Math.pow((c+0.055)/1.055,2.4)};
+const gam=c=>{c=clamp(c,0,1);return c<=0.0031308?12.92*c:1.055*Math.pow(c,1/2.4)-0.055};
+const rgb2xyz=(r,g,b)=>[0.4124*r+0.3576*g+0.1805*b,0.2126*r+0.7152*g+0.0722*b,0.0193*r+0.1192*g+0.9505*b];
+const xyz2rgb=(X,Y,Z)=>[3.2406*X-1.5372*Y-0.4986*Z,-0.9689*X+1.8758*Y+0.0415*Z,0.0557*X-0.2040*Y+1.0570*Z];
+function planckUV(T){const u=(0.860117757+1.54118254e-4*T+1.28641212e-7*T*T)/(1+8.42420235e-4*T+7.08145163e-7*T*T);
+  const v=(0.317398726+4.22806245e-5*T+4.20481691e-8*T*T)/(1-2.89741816e-5*T+1.61456053e-7*T*T);return[u,v]}
+const uvOf=([X,Y,Z])=>{const d=X+15*Y+3*Z;return d>0?[4*X/d,6*Y/d]:[0,0]};
+function xyzDeT(T){const[u,v]=planckUV(T);const x=3*u/(2*u-8*v+4),y=2*v/(2*u-8*v+4);return[x/y,1,(1-x-y)/y]}
+function cctDuv(X,Y,Z){const d=X+15*Y+3*Z;if(d<=0)return null;const u=4*X/d,v=6*Y/d;
+  const dist=T=>{const[a,b]=planckUV(T);return Math.hypot(u-a,v-b)};let best={T:5000,e:9};
+  for(let m=67;m<=1000;m+=4){const T=1e6/m,e=dist(T);if(e<best.e)best={T,e}}
+  let lo=1e6/Math.min(1000,1e6/best.T+4),hi=1e6/Math.max(67,1e6/best.T-4);
+  for(let i=0;i<40;i++){const a=lo+(hi-lo)/3,b=hi-(hi-lo)/3;if(dist(a)<dist(b))hi=b;else lo=a}
+  const T=(lo+hi)/2,[pu,pv]=planckUV(T);return{T,duv:Math.sign(v-pv)*Math.hypot(u-pu,v-pv)}}
+function kelvinRGB(T){let c=xyz2rgb(...xyzDeT(clamp(T,1000,15000)));const m=Math.max(...c);return c.map(q=>Math.round(gam(Math.max(0,q/m))*255))}
+function setLuz(T){const[r,g,b]=kelvinRGB(T);document.documentElement.style.setProperty('--luz',`rgb(${r},${g},${b})`)}
+function inv3(m){const[a,b,c,d,e,f,g,h,i]=m,A=e*i-f*h,B=-(d*i-f*g),C=d*h-e*g,det=a*A+b*B+c*C;if(Math.abs(det)<1e-12)return null;
+  return[A/det,-(b*i-c*h)/det,(b*f-c*e)/det,B/det,(a*i-c*g)/det,-(a*f-c*d)/det,C/det,-(a*h-b*g)/det,(a*e-b*d)/det]}
+const mul3=(m,v)=>[m[0]*v[0]+m[1]*v[1]+m[2]*v[2],m[3]*v[0]+m[4]*v[1]+m[5]*v[2],m[6]*v[0]+m[7]*v[1]+m[8]*v[2]];
+
+/* ---------- medição com a câmera ---------- */
+function readExif(buf){try{const dv=new DataView(buf);if(dv.getUint16(0)!==0xFFD8)return null;let o=2;
+  while(o<dv.byteLength-4){const mk=dv.getUint16(o),len=dv.getUint16(o+2);
+    if(mk===0xFFE1&&dv.getUint32(o+4)===0x45786966){const t=o+10,le=dv.getUint16(t)===0x4949;
+      const u16=p=>dv.getUint16(p,le),u32=p=>dv.getUint32(p,le),rat=p=>{const a=u32(p),b=u32(p+4);return b?a/b:null};
+      const out={};const ifd=(s,cb)=>{const n=u16(s);for(let i=0;i<n;i++){const e=s+2+i*12;cb(u16(e),u16(e+2),u32(e+4),e+8)}};
+      let ep=null;ifd(t+u32(t+4),(tag,ty,c,vp)=>{if(tag===0x8769)ep=u32(vp)});if(ep==null)return null;
+      ifd(t+ep,(tag,ty,c,vp)=>{if(tag===0x829A)out.t=rat(t+u32(vp));if(tag===0x829D)out.N=rat(t+u32(vp));if(tag===0x8827)out.iso=ty===3?u16(vp):u32(vp)});
+      return(out.t&&out.N&&out.iso)?out:null}
+    if((mk&0xFF00)!==0xFF00)break;o+=2+len}}catch(e){}return null}
+
+let cal=store.get('fot.cal',{mired:0,lux:1});
+// fator de lux por referência; o difusor só mede lux depois de calibrado
+if(!cal.ref)cal.ref={cinza:cal.lux||1,sulfite:1,difusor:null};
+const REFS={cinza:{nome:'cartão cinza',o:'o cartão',da:'do cartão',rho:0.18,guia:'Segure o cartão na posição do artista, virado para os aparelhos, e fotografe com a câmera traseira enchendo o círculo central, sem fazer sombra nele.'},
+  sulfite:{nome:'folha branca',o:'a folha',da:'da folha',rho:0.87,guia:'Use folha branca comum, não reciclada. Segure na posição do artista, virada para os aparelhos, e fotografe com a câmera traseira enchendo o círculo, sem fazer sombra. O reflexo varia um pouco por marca; com luxímetro, calibre uma vez em Calibrar o celular, no fim da aba Aferir.'},
+  difusor:{nome:'difusor',rho:null,guia:'Encoste um difusor branco translúcido (meia bolinha de pingue-pongue, copinho branco) na lente principal da câmera traseira. Fique na posição do artista com a traseira apontada para os aparelhos e a tela virada para você.'}};
+let ref=store.get('fot.ref','cinza');if(!REFS[ref])ref='cinza';
+function refGuia(){$('ref').value=ref;$('refGuia').textContent=REFS[ref].guia+(ref==='difusor'&&!cal.ref.difusor?' Este difusor ainda não foi calibrado: o app compara os pontos entre si, mas só mostra lux depois da calibração (Calibrar o celular, no fim da aba Aferir).':'')}
+const tela=$('tela'),ctx=tela.getContext('2d',{willReadFrequently:true});
+function analisar(exif){const w=tela.width,h=tela.height,r=Math.round(Math.min(w,h)*0.11);
+  const d=ctx.getImageData(Math.round(w/2-r),Math.round(h/2-r),2*r,2*r).data;let R=0,G=0,B=0,n=0,clip=0;const qs=[0,0,0,0],qn=[0,0,0,0];
+  for(let y=0;y<2*r;y++)for(let x=0;x<2*r;x++){const dx=x-r,dy=y-r;if(dx*dx+dy*dy>r*r)continue;const i=(y*2*r+x)*4;
+    R+=lin(d[i]);G+=lin(d[i+1]);B+=lin(d[i+2]);n++;if(d[i]>250||d[i+1]>250||d[i+2]>250)clip++;
+    const q=(dx<0?0:1)+(dy<0?0:2),yy=0.2126*lin(d[i])+0.7152*lin(d[i+1])+0.0722*lin(d[i+2]);qs[q]+=yy;qn[q]++}
+  const qm=qs.map((v,k)=>v/Math.max(1,qn[k])),unif=Math.max(...qm)/Math.max(1e-4,Math.min(...qm));
+  R/=n;G/=n;B/=n;const[X,Y,Z]=rgb2xyz(R,G,B),c=cctDuv(X,Y,Z);
+  const ev100=exif?Math.log2(exif.N*exif.N/exif.t)-Math.log2(exif.iso/100):null;
+  const k=exif?Math.pow(2,ev100):1; // escala que deixa fotos com exposições diferentes comparáveis
+  const o={rgb:[R*k,G*k,B*k],expo:!!exif,Y,T:c?1e6/(1e6/c.T+cal.mired):NaN,duv:c?c.duv:0,clip:clip/n,unif,exif,stops:Math.log2(Math.max(Y,1e-5)/0.18),
+    cor:[R,G,B].map(v=>Math.round(gam(v)*255))};
+  if(exif){o.ev=ev100+o.stops;const base=Math.PI*0.125*Math.pow(2,o.ev);o.ref=ref;
+    o.luxBruto=ref==='difusor'?base:base/REFS[ref].rho;const f=cal.ref[ref];o.lux=f?o.luxBruto*f:null}
+  return o}
+let aoMedir=null;
+let medAtivo=false,medRot='',medPronto=false,isoModo=store.get('fot.iso','auto'),isoMan=store.get('fot.isoMan',{iso:400,N:4,t:50});
+function exifManual(){return isoModo==='manual'&&isoMan.iso&&isoMan.N&&isoMan.t?{iso:+isoMan.iso,N:+isoMan.N,t:1/(+isoMan.t)}:null}
+function problemaFoto(o){
+  if(o.clip>0.08)return{grave:true,txt:ref==='difusor'?'A foto estourou. Afaste-se um pouco do aparelho ou baixe o ISO e tente de novo.':'A foto estourou. Dê um passo para trás ou baixe o ISO e tente de novo.'};
+  if(o.Y<0.02)return{grave:true,txt:'A foto saiu escura demais. Confira se o aparelho está aceso; no modo manual, suba o ISO ou deixe o obturador mais lento.'};
+  if(ref!=='difusor'&&o.unif>1.6)return{grave:true,txt:(ref==='cinza'?'O cartão':'A folha')+' não encheu o círculo, ou tem sombra '+(ref==='cinza'?'nele':'nela')+'. Chegue mais perto, até ele ocupar todo o círculo do meio, e saia da frente da luz.'};
+  if(ref==='difusor'&&o.unif>1.6)return{grave:true,txt:'A luz não chegou por igual no difusor. Encoste bem o difusor na lente e aponte direto para o aparelho.'};
+  if(!o.exif)return{grave:false,txt:'O celular tirou da foto os dados de ISO, abertura e tempo. Dá para comparar os pontos entre si, mas sem lux. Para ter lux, escolha câmera manual e digite os valores.'};
+  return null}
+function medir(rotulo,cb){aoMedir=cb;medRot=rotulo;$('selo').textContent='Medindo: '+rotulo;
+  if(!gLiga){capturar();return}
+  medAtivo=true;$('medBox').hidden=false;medPasso(medPronto?'posicao':'tem')}
+function fecharMed(){medAtivo=false;$('medBox').hidden=true}
+$('mFecha').onclick=()=>{aoMedir=null;fecharMed()};
+const PREP={cinza:['Prenda o cartão cinza no pedestal do microfone, numa cadeira ou num tripé, bem no lugar onde o artista vai ficar.','Deixe na altura do rosto, uns 1,6 m, virado de frente para os aparelhos. Fita crepe resolve.','Confira que nada faz sombra nele.'],
+  sulfite:['Prenda uma folha branca no pedestal do microfone, numa cadeira ou num tripé, bem no lugar onde o artista vai ficar. Fita crepe resolve.','Deixe na altura do rosto, uns 1,6 m, virada de frente para os aparelhos.','Use folha lisa e branca, não reciclada, sem dobra.'],
+  difusor:['Pegue um copinho plástico branco ou meia bolinha de pingue-pongue.','Encoste na lente principal da câmera traseira (a de 1x), cobrindo a lente toda.','Você vai ficar no lugar do artista, com a câmera apontada para os aparelhos.']};
+function medPasso(e){const C=$('mCorpo'),T=$('mTit');$('mConta').textContent='Medindo: '+medRot;
+  if(e==='tem'){T.textContent='O que você tem aí?';
+    C.innerHTML=`<p>Escolha o que você tem à mão para medir. Qualquer um serve.</p><div class="medOpc">
+      <button type="button" data-r="cinza">Cartão cinza<small>O mais preciso, usado por fotógrafos</small></button>
+      <button type="button" data-r="sulfite">Folha branca de papel<small>Sulfite comum, fácil de achar</small></button>
+      <button type="button" data-r="difusor">Copinho ou bolinha branca<small>Vai encostado na câmera</small></button>
+      <button type="button" data-r="nada">Não tenho nenhum<small>Te digo onde arranjar</small></button></div>`;
+    C.querySelectorAll('[data-r]').forEach(b=>b.onclick=()=>{const r=b.dataset.r;if(r==='nada'){medPasso('nada');return}
+      if(r!==ref){$('ref').value=r;$('ref').dispatchEvent(new Event('change'))}medPasso('prep')});return}
+  if(e==='nada'){T.textContent='Sem problema';
+    C.innerHTML=`<p>Peça na produção uma folha de papel branca, dessas de impressora, ou pegue um copinho branco de café no camarim. Os dois funcionam.</p><div class="medAcoes"><button type="button" id="mV">Voltar</button></div>`;
+    $('mV').onclick=()=>medPasso('tem');return}
+  if(e==='prep'){T.textContent=ref==='difusor'?'Prepare o difusor':'Prenda no lugar do artista';
+    C.innerHTML=`<ol>${PREP[ref].map(x=>`<li>${x}</li>`).join('')}</ol><div class="medAcoes"><button type="button" id="mV">Voltar</button><button type="button" class="primario" id="mA">Pronto</button></div>`;
+    $('mV').onclick=()=>medPasso('tem');$('mA').onclick=()=>medPasso('camera');return}
+  if(e==='camera'){T.textContent='Ajuste da câmera';
+    C.innerHTML=`<p>Como você quer a câmera?</p><div class="medOpc">
+      <button type="button" data-i="auto">Automático<small>O app lê ISO, abertura e tempo direto da foto</small></button>
+      <button type="button" data-i="manual">Manual<small>Você fixa os valores no modo Pro e digita aqui</small></button></div>
+      <div id="mIso"></div>
+      <p class="nota">Para a temperatura sair certa, trave o balanço de branco em 5600 K no modo Pro da câmera, se o seu celular tiver. No automático o celular corrige a cor da luz por conta própria.</p>
+      <div class="medAcoes"><button type="button" id="mV">Voltar</button><button type="button" class="primario" id="mA">Continuar</button></div>`;
+    const iso=()=>{C.querySelectorAll('[data-i]').forEach(b=>b.setAttribute('aria-pressed',b.dataset.i===isoModo));
+      $('mIso').innerHTML=isoModo==='manual'?`<div class="campos"><div class="campo"><label for="mI">ISO</label><input id="mI" type="number" inputmode="numeric" value="${isoMan.iso}"></div>
+        <div class="campo"><label for="mN">Abertura f/</label><input id="mN" type="number" step="0.1" inputmode="decimal" value="${isoMan.N}"></div>
+        <div class="campo"><label for="mT">Obturador 1/</label><input id="mT" type="number" inputmode="numeric" value="${isoMan.t}"></div></div>
+        <p class="nota">Comece com ISO 400. Se a foto estourar, baixe o ISO; se ficar escura, suba. Digite aqui os mesmos valores que estão na câmera.</p>`:''};
+    C.querySelectorAll('[data-i]').forEach(b=>b.onclick=()=>{isoModo=b.dataset.i;store.set('fot.iso',isoModo);iso()});iso();
+    $('mV').onclick=()=>medPasso('prep');
+    $('mA').onclick=()=>{if(isoModo==='manual'){isoMan={iso:+$('mI').value,N:+$('mN').value,t:+$('mT').value};store.set('fot.isoMan',isoMan)}medPronto=true;medPasso('posicao')};return}
+  if(e==='posicao'){T.textContent=ref==='difusor'?'Aponte para a luz':'Posicione-se';
+    const txt=ref==='difusor'?['Fique exatamente onde o artista vai ficar, na altura do rosto.','Vire a câmera traseira, com o difusor, de frente para os aparelhos. A tela fica virada para você.','Toque em Abrir câmera e tire a foto.']
+      :['Fique a 1 metro na frente '+REFS[ref].da+', mais ou menos um passo largo.','Fique um pouco de lado, para o seu corpo não fazer sombra '+(ref==='cinza'?'nele':'nela')+'.','Toque em Abrir câmera e aponte para '+REFS[ref].o+'. Chegue perto até '+(ref==='cinza'?'ele':'ela')+' encher a tela e tire a foto.'];
+    C.innerHTML=`<ol>${txt.map(x=>`<li>${x}</li>`).join('')}</ol><p class="nota">Usando ${REFS[ref].nome}, câmera ${isoModo==='manual'?'manual (ISO '+isoMan.iso+')':'automática'}. <a href="#" id="mTroca">Trocar</a></p>
+      <div class="medAcoes"><button type="button" class="primario" id="mA">Abrir câmera</button></div>`;
+    $('mTroca').onclick=ev=>{ev.preventDefault();medPasso('tem')};$('mA').onclick=()=>capturar();return}}
+function medResultado(o,prob){const C=$('mCorpo');
+  if(prob&&prob.grave){$('mTit').textContent='Vamos de novo';
+    C.innerHTML=`<p class="medAviso">${prob.txt}</p><div class="medAcoes"><button type="button" id="mV">Ver instruções</button><button type="button" class="primario" id="mA">Tirar outra foto</button></div>`;
+    $('mV').onclick=()=>medPasso('posicao');$('mA').onclick=()=>capturar();return}
+  $('mTit').textContent='Medida boa';
+  C.innerHTML=`<p class="medOk">${o.lux!=null?nf(o.lux)+' lux · ':''}${isFinite(o.T)?nf(Math.round(o.T/50)*50)+' K':''}</p>${prob?`<p class="nota">${prob.txt}</p>`:''}
+    <div class="medAcoes"><button type="button" id="mV">Medir de novo</button><button type="button" class="primario" id="mA">Usar esta medida</button></div>`;
+  $('mV').onclick=()=>capturar();
+  $('mA').onclick=()=>{const cb=aoMedir;aoMedir=null;fecharMed();if(cb)cb(o)}}
+
+function desenhar(img,sw,sh){const ar=4/3,w=tela.width,h=tela.height;let sx=0,sy=0,cw=sw,ch=sh;
+  if(sw/sh>ar){cw=sh*ar;sx=(sw-cw)/2}else{ch=sw/ar;sy=(sh-ch)/2}ctx.drawImage(img,sx,sy,cw,ch,0,0,w,h)}
+function concluir(o){const prob=problemaFoto(o);
+  if(medAtivo){medResultado(o,prob);return}
+  if(prob&&prob.grave){$('selo').textContent=prob.txt;return}
+  const cb=aoMedir;aoMedir=null;if(cb)cb(o)}
+// desenha a fonte de modo que o círculo da tela caia exatamente no spot analisado (raio 11% da altura do canvas)
+function desenharSpot(src,sw,sh,frac){const rs=frac*Math.min(sw,sh),k=rs/(0.11*tela.height),cw=tela.width*k,ch=tela.height*k;
+  ctx.fillStyle='#000';ctx.fillRect(0,0,tela.width,tela.height);ctx.drawImage(src,sw/2-cw/2,sh/2-ch/2,cw,ch,0,0,tela.width,tela.height)}
+function fracVivo(){const v=vivo.v,vw=v.videoWidth,vh=v.videoHeight,sc=Math.max(innerWidth/vw,innerHeight/vh),D=$('vAlvo').getBoundingClientRect().width;
+  return(D/2-4)/sc/Math.min(vw,vh)}
+async function processarArquivo(file,exifExtra,frac){const exif=readExif(await file.arrayBuffer())||exifExtra||exifManual();
+  const url=URL.createObjectURL(file),img=new Image();
+  img.onload=()=>{if(frac)desenharSpot(img,img.naturalWidth,img.naturalHeight,frac);else desenhar(img,img.naturalWidth,img.naturalHeight);URL.revokeObjectURL(url);concluir(analisar(exif))};img.src=url}
+$('foto').addEventListener('change',e=>{const file=e.target.files[0];e.target.value='';if(!file||!aoMedir)return;processarArquivo(file)});
+
+/* ---------- modo ao vivo: guia pela câmera e mede sozinho depois de 3 s parado ---------- */
+let vivoOff=!(navigator.mediaDevices&&navigator.mediaDevices.getUserMedia),vivo=null,voz=store.get('fot.voz',true);
+function capturar(){if(vivoOff){$('foto').click();return}abrirVivo()}
+function falar(t){if(!voz||!window.speechSynthesis)return;try{speechSynthesis.cancel();const u=new SpeechSynthesisUtterance(t);u.lang='pt-BR';u.rate=1.05;speechSynthesis.speak(u)}catch(e){}}
+async function abrirVivo(){$('vivo').hidden=false;$('vMsg').textContent='Abrindo a câmera...';$('vConta').textContent='';$('vVoz').textContent=voz?'Voz ligada':'Voz desligada';
+  try{const st=await navigator.mediaDevices.getUserMedia({video:{facingMode:{ideal:'environment'},width:{ideal:1280},height:{ideal:960}},audio:false});
+    const v=$('vVideo');v.srcObject=st;await v.play();vivo={st,v,ant:null,okDesde:0,ultimaFala:'',tFala:0,timer:0,contando:false};vivo.timer=setInterval(quadro,140)}
+  catch(e){fecharVivo();vivoOff=true;
+    if(medAtivo){$('mTit').textContent='Câmera ao vivo indisponível';$('mCorpo').innerHTML=`<p>Aqui a câmera ao vivo não abre, então vamos por foto. Toque em Tirar foto e aponte como explicado.</p><div class="medAcoes"><button type="button" class="primario" id="mA">Tirar foto</button></div>`;$('mA').onclick=()=>$('foto').click()}
+    else $('selo').textContent='A câmera ao vivo não abriu. Toque em Medir de novo para usar a foto.'}}
+function fecharVivo(){if(vivo){clearInterval(vivo.timer);vivo.st.getTracks().forEach(t=>t.stop());vivo=null}$('vivo').hidden=true;try{speechSynthesis.cancel()}catch(e){}}
+$('vFecha').onclick=()=>{fecharVivo()};
+$('vVoz').onclick=()=>{voz=!voz;store.set('fot.voz',voz);$('vVoz').textContent=voz?'Voz ligada':'Voz desligada';if(!voz)try{speechSynthesis.cancel()}catch(e){}};
+$('vAgora').onclick=()=>disparar();
+const mini=document.createElement('canvas');mini.width=32;mini.height=24;const miniCtx=mini.getContext('2d',{willReadFrequently:true});
+function medidaQuadro(){const v=vivo.v;desenharSpot(v,v.videoWidth,v.videoHeight,fracVivo());const w=tela.width,h=tela.height,r=Math.round(Math.min(w,h)*0.11);
+  const d=ctx.getImageData(0,0,w,h).data,Yp=i=>0.2126*lin(d[i])+0.7152*lin(d[i+1])+0.0722*lin(d[i+2]);
+  let sp=0,ns=0,an=0,na=0,clip=0,cn=0;const qs=[0,0,0,0],qn=[0,0,0,0],grade=[];
+  for(let y=0;y<h;y+=4)for(let x=0;x<w;x+=4){const i=(y*w+x)*4,dx=x-w/2,dy=y-h/2,dd=Math.hypot(dx,dy),yy=Yp(i);
+    if(dd<=r){sp+=yy;ns++;const q=(dx<0?0:1)+(dy<0?0:2);qs[q]+=yy;qn[q]++;if(d[i]>250||d[i+1]>250||d[i+2]>250)clip++}
+    else if(dd>r*1.35&&dd<r*1.7){an+=yy;na++}
+}
+  // quadro inteiro em miniatura: cantos (cartão colado na lente?) e movimento
+  miniCtx.drawImage(v,0,0,32,24);const md=miniCtx.getImageData(0,0,32,24).data,Ym=i=>0.2126*lin(md[i])+0.7152*lin(md[i+1])+0.0722*lin(md[i+2]);
+  let cantos=0;[[1,1],[30,1],[1,22],[30,22]].forEach(([x,y])=>cantos+=Ym((y*32+x)*4));cantos/=4;
+  grade.length=0;for(let i=0;i<md.length;i+=16)grade.push(Ym(i));
+  const qm=qs.map((s,k)=>s/Math.max(1,qn[k]));sp/=ns;an/=Math.max(1,na);
+  return{sp,an,cantos,clip:clip/ns,unif:Math.max(...qm)/Math.max(1e-4,Math.min(...qm)),grade}}
+function quadro(){if(!vivo||!vivo.v.videoWidth)return;const m=medidaQuadro();let msg='',ok=false;
+  let mov=0;if(vivo.ant){for(let i=0;i<m.grade.length;i++)mov+=Math.abs(m.grade[i]-vivo.ant[i])/(vivo.ant[i]+0.02);mov/=m.grade.length}vivo.ant=m.grade;
+  if(m.sp<0.015)msg='Está escuro. Confira se o aparelho está aceso.';
+  else if(m.clip>0.05)msg=ref==='difusor'?'Está estourando. Afaste-se um pouco do aparelho.':'Está estourando. Dê um passo para trás.';
+  else if(ref==='difusor'){if(m.unif>1.3)msg='Encoste bem o difusor e aponte direto para o aparelho.';else if(mov>0.06)msg='Fique parado.';else ok=true}
+  else if(m.unif>1.35)msg='Enquadre o '+(ref==='cinza'?'cartão':'papel')+' no círculo, sem sombra.';
+  else if(Math.abs(m.an/m.sp-1)>0.22)msg='Chegue mais perto.';
+  else if(Math.abs(m.cantos/m.sp-1)<0.08)msg='Afaste um pouco, você pode estar fazendo sombra.';
+  else if(mov>0.06)msg='Fique parado.';else ok=true;
+  const agora=performance.now();
+  if(ok){if(!vivo.okDesde)vivo.okDesde=agora;const falta=3-Math.floor((agora-vivo.okDesde)/1000);
+    if(falta<=0){disparar();return}
+    if($('vConta').textContent!==String(falta)){$('vConta').textContent=falta;falar(String(falta))}
+    $('vMsg').textContent='Perfeito, fique parado.';$('vivo').classList.add('pronto')}
+  else{vivo.okDesde=0;$('vConta').textContent='';$('vivo').classList.remove('pronto');$('vMsg').textContent=msg;
+    if(msg!==vivo.ultimaFala&&agora-vivo.tFala>2200){vivo.ultimaFala=msg;vivo.tFala=agora;falar(msg)}}}
+async function disparar(){if(!vivo)return;clearInterval(vivo.timer);$('vConta').textContent='';$('vMsg').textContent='Medindo...';
+  const track=vivo.st.getVideoTracks()[0];let feito=false;
+  if(window.ImageCapture){try{const fr=fracVivo(),blob=await new ImageCapture(track).takePhoto();fecharVivo();falar('Pronto.');await processarArquivo(blob,null,fr);feito=true}catch(e){}}
+  if(!feito&&vivo){medidaQuadro();let ex=null;try{const s=track.getSettings();if(s.iso&&s.exposureTime&&isoMan.N)ex={iso:s.iso,t:s.exposureTime/10000,N:+isoMan.N}}catch(e){}
+    fecharVivo();falar('Pronto.');concluir(analisar(ex||exifManual()))}}
+
+/* ---------- cor: do alvo em K para os valores de cada canal ---------- */
+const miredRaw=K=>1e6/K-cal.mired; // alvo no espaço da câmera, antes da calibração
+function faixaLinear(f){
+  if(f.cor==='cto')return{q:f.kMin,fr:f.kNat};
+  if(f.cor==='ctb')return{q:f.kNat,fr:f.kMax};
+  if(f.cor==='cct')return{q:f.kMin,fr:f.kMax};return{}}
+function resolverCor(f,K){
+  const P=PERFIS[f.pkey||f.id],can=CANAIS[f.cor]||['CTO'];
+  // 1. perfil por níveis (CTO, CTB, CCT medidos de 25 em 25)
+  if(P&&P.tipo==='niveis'&&P.pontos&&P.pontos.length>=2){
+    const pts=P.pontos.slice().sort((a,b)=>a.v-b.v),m=1e6/K,ms=pts.map(p=>1e6/p.K);
+    let v=null,fora=null;const lo=Math.min(...ms),hi=Math.max(...ms);
+    if(m<lo-3)fora='frio';else if(m>hi+3)fora='quente';
+    const mc=clamp(m,lo,hi);
+    for(let i=0;i<pts.length-1;i++){const a=ms[i],b=ms[i+1];if((mc-a)*(mc-b)<=0){const t=b===a?0:(mc-a)/(b-a);v=pts[i].v+t*(pts[i+1].v-pts[i].v);
+      const la=pts[i].lum,lb=pts[i+1].lum;var fator=la&&lb&&pts[0].lum?((la+t*(lb-la))/Math.max(...pts.map(p=>p.lum))):1;break}}
+    if(v==null)v=Math.abs(m-ms[0])<Math.abs(m-ms[ms.length-1])?pts[0].v:pts[pts.length-1].v;
+    return{vals:[{ch:can[0],v}],fator:fator||1,fora,fonte:'perfil medido'}}
+  // 2. perfil aditivo (LED: cada canal medido sozinho a 100%)
+  if(P&&P.tipo==='aditivo'&&P.canais){
+    const T=xyzDeT(1e6/miredRaw(K)),base=['R','G','B'].map(c=>P.canais[c]&&rgb2xyz(...P.canais[c].rgb));
+    if(base.some(x=>!x))return null;
+    const M=[base[0][0],base[1][0],base[2][0],base[0][1],base[1][1],base[2][1],base[0][2],base[1][2],base[2][2]],Mi=inv3(M);if(!Mi)return null;
+    const W=P.canais.W&&rgb2xyz(...P.canais.W.rgb);const Yall=base.reduce((s,x)=>s+x[1],0)+(W?W[1]:0);
+    let best=null;const pT=mul3(Mi,T),qW=W?mul3(Mi,W):[0,0,0];
+    for(let w=0;w<=(W?1:0)+1e-9;w+=0.01){let smin=0,smax=Infinity,ok=true;
+      for(let j=0;j<3;j++){const p=pT[j],q=qW[j]*w;
+        if(Math.abs(p)<1e-12){if(-q<0||-q>1){ok=false;break}continue}
+        const s1=q/p,s2=(1+q)/p;smin=Math.max(smin,Math.min(s1,s2));smax=Math.min(smax,Math.max(s1,s2))}
+      if(!ok||smax<smin||smax<=0)continue;
+      const s=smax,Ytot=s+w*(W?W[1]:0)-w*(W?W[1]:0);if(!best||s>best.s)best={s,w,a:pT.map((p,j)=>clamp(s*p-qW[j]*w,0,1))}}
+    if(!best){ // fora do alcance: chega o mais perto possível
+      let a=pT.map(x=>Math.max(0,x));const mx=Math.max(...a)||1;a=a.map(x=>x/mx);
+      return{vals:['R','G','B'].map((c,i)=>({ch:c,v:a[i]*100})).concat(W?[{ch:'W',v:0}]:[]),fator:0.3,fora:'alcance',fonte:'perfil medido'}}
+    const vals=['R','G','B'].map((c,i)=>({ch:c,v:best.a[i]*100}));if(W)vals.push({ch:'W',v:best.w*100});
+    return{vals,fator:best.s/Yall,fora:null,fonte:'perfil medido'}}
+  // 3. perfil CMY (cada bandeira medida em 25, 50, 75 e 100%)
+  if(P&&P.tipo==='cmy'&&P.branco&&P.flags){
+    const wb=P.branco.rgb,tr={};
+    for(const fl of['C','M','Y']){const pts=[{v:0,t:[1,1,1]}].concat((P.flags[fl]||[]).map(p=>({v:p.v,t:p.rgb.map((x,i)=>x/(wb[i]||1e-9))}))).sort((a,b)=>a.v-b.v);
+      tr[fl]=v=>{for(let i=0;i<pts.length-1;i++){if(v<=pts[i+1].v){const t=(v-pts[i].v)/(pts[i+1].v-pts[i].v||1);return pts[i].t.map((x,k)=>x+t*(pts[i+1].t[k]-x))}}return pts[pts.length-1].t}}
+    const alvo=planckUV(1e6/miredRaw(K)),Yw=rgb2xyz(...wb)[1];
+    const avalia=(c,m,y)=>{const a=tr.C(c),b=tr.M(m),d=tr.Y(y);const rgb=wb.map((x,i)=>x*a[i]*b[i]*d[i]);const X=rgb2xyz(...rgb);const uv=uvOf(X);
+      return{c,m,y,dist:Math.hypot(uv[0]-alvo[0],uv[1]-alvo[1]),Y:X[1]/Yw}};
+    const melhor=(a,b)=>{const ga=a.dist<0.0018,gb=b.dist<0.0018;if(ga&&gb)return a.Y>=b.Y?a:b;if(ga)return a;if(gb)return b;return a.dist<=b.dist?a:b};
+    let best=avalia(0,0,0);
+    for(let c=0;c<=100;c+=4)for(let m=0;m<=100;m+=4)for(let y=0;y<=100;y+=4)best=melhor(best,avalia(c,m,y));
+    const b0=best;for(let c=b0.c-4;c<=b0.c+4;c++)for(let m=b0.m-4;m<=b0.m+4;m++)for(let y=b0.y-4;y<=b0.y+4;y++){if(c<0||m<0||y<0||c>100||m>100||y>100)continue;best=melhor(best,avalia(c,m,y))}
+    return{vals:[{ch:'C',v:best.c},{ch:'M',v:best.m},{ch:'Y',v:best.y}],fator:best.Y,fora:best.dist>0.004?'alcance':null,fonte:'perfil medido'}}
+  // 4. sem perfil: canal único linear em mired entre os extremos da ficha
+  if(['cto','ctb','cct'].includes(f.cor)){const r=faixaLinear(f);if(!r.q||!r.fr)return null;
+    const mq=1e6/r.q,mf=1e6/r.fr,m=1e6/K;const fora=f.cor==='cct'?null:m<mf-5?'frio':m>mq+5?'quente':null;
+    const v=f.cor==='cto'?(m-mf)/(mq-mf)*100:f.cor==='ctb'?(mq-m)/(mq-mf)*100:(m-mq)/(mf-mq)*100;
+    return{vals:[{ch:can[0],v:clamp(v,0,100)}],fator:1,fora,fonte:'estimativa pela ficha'}}
+  return null} // CMY ou RGB sem perfil: precisa medir
+
+/* ---------- banco de dados (biblioteca compartilhada entre seus aparelhos) ---------- */
+let db=null;
+const salvarLocal=()=>{store.set('fot.custom',CUSTOM);store.set('fot.perfis',PERFIS)};
+CUSTOM=store.get('fot.custom',{});PERFIS=store.get('fot.perfis',{});
+const paraDb=f=>({...f,zoom:{min:f.zoom[0],max:f.zoom[1]},pts:(f.pts||[]).map(p=>({a:p[0],cd:p[1]}))});
+const doDb=d=>({...d,zoom:[d.zoom.min,d.zoom.max],pts:(d.pts||[]).map(p=>[p.a,p.cd])});
+async function gravarAparelho(f){CUSTOM[f.id]=f;salvarLocal();if(db){await db.collection('aparelhos').doc(f.id).set(paraDb(f))}}
+async function apagarAparelho(id){delete CUSTOM[id];const ks=Object.keys(PERFIS).filter(k=>k===id||k.startsWith(id+'__'));ks.forEach(k=>delete PERFIS[k]);salvarLocal();if(db){await db.collection('aparelhos').doc(id).delete();for(const k of ks)await db.collection('perfis').doc(k).delete()}}
+async function gravarPerfil(id,p){if(p)PERFIS[id]=p;else delete PERFIS[id];salvarLocal();if(db){const r=db.collection('perfis').doc(id);if(p)await r.set({dados:JSON.stringify(p)});else await r.delete()}}
+if(window.claude&&window.claude.use){
+  window.claude.use('db').then(d=>{if(!d){$('msgBib').textContent='Biblioteca guardada só neste celular.';return}db=d;
+    const timer=setTimeout(()=>{$('msgBib').textContent='A biblioteca online não respondeu. Usando o que está salvo neste celular.'},10000);
+    db.collection('aparelhos').onSnapshot(s=>{clearTimeout(timer);const n={};s.docs.forEach(x=>{try{n[x.id]=doDb(x.data())}catch(e){}});
+      if(!s.metadata.fromCache||s.size){CUSTOM=n;salvarLocal();atualizarTudo()}$('msgBib').textContent='Biblioteca sincronizada com sua conta.'},
+      ()=>{clearTimeout(timer);$('msgBib').textContent='Não deu para ler a biblioteca online. Usando o que está salvo neste celular.'});
+    db.collection('perfis').onSnapshot(s=>{const n={};s.docs.forEach(x=>{try{n[x.id]=JSON.parse(x.data().dados)}catch(e){}});
+      if(!s.metadata.fromCache||s.size){PERFIS=n;salvarLocal();atualizarTudo()}},()=>{});
+  }).catch(()=>{});
+}
+
+/* ---------- estado ---------- */
+const S=Object.assign({fx:'rivale',qtd:12,fid:101,alt:7,dist:6,prof:2,larg:12,kAlvo:5600,luxAlvo:1200,pCor:21,pDim:21,atr:{},sis:{}},store.get('fot.v3',{}));
+S.atr=Object.assign({},ATR_PADRAO,S.atr||{});
+let plano=null,ajuste=store.get('fot.ajuste3',null),medidas=store.get('fot.medidas3',{}),sel=S.fx;
+const campos=['qtd','fid','alt','dist','prof','larg','luxAlvo','pCor','pDim'];
+const marcas=()=>[...new Set(todos().map(f=>f.marca))].sort((a,b)=>a.localeCompare(b,'pt'));
+function preencherModelos(marca){$('fx').innerHTML=todos().filter(f=>f.marca===marca).sort((a,b)=>a.modelo.localeCompare(b.modelo,'pt')).map(f=>`<option value="${esc(f.id)}">${esc(f.modelo)}${f.custom?' (seu)':''}</option>`).join('')}
+function preencherSelect(){if(!todos().some(f=>f.id===S.fx))S.fx=FABRICA[0].id;const m=achar(S.fx).marca,ms=marcas();
+  $('fab').innerHTML=ms.map(x=>`<option>${esc(x)}</option>`).join('');$('fab').value=m;preencherModelos(m);$('fx').value=S.fx;
+  const ff=$('fFab').value;$('fFab').innerHTML='<option value="">Todos</option>'+ms.map(x=>`<option>${esc(x)}</option>`).join('');$('fFab').value=ms.includes(ff)?ff:'';
+  $('marcas').innerHTML=ms.map(x=>`<option value="${esc(x)}"></option>`).join('')}
+$('fBusca').addEventListener('input',()=>renderAparelhos());['fFab','fCor','fOrig'].forEach(k=>$(k).addEventListener('change',()=>renderAparelhos()));
+$('fab').addEventListener('change',()=>{preencherModelos($('fab').value);$('fx').selectedIndex=0;$('fx').dispatchEvent(new Event('change'))});
+function carregarCampos(){preencherSelect();campos.forEach(k=>$(k).value=S[k]);$('kAlvo').value=S.kAlvo}
+function salvarS(){store.set('fot.v3',S)}
+
+function textoCor(f){const can=CANAIS[f.cor];
+  if(f.cor==='cct')return`Temperatura nativa ${f.kMin?nf(f.kMin):'?'} a ${f.kMax?nf(f.kMax):'?'} K`;
+  if(f.cor==='ctb')return`Branco ${nf(f.kNat)} K, CTB até ${f.kMax?nf(f.kMax)+' K':'?'}`;
+  if(f.cor==='cto')return`Branco ${f.kNat?nf(f.kNat):'?'} K, CTO até ${f.kMin?nf(f.kMin)+' K':'faixa não publicada'}`;
+  return`${f.cor.toUpperCase()}, branco ${f.kNat?nf(f.kNat)+' K':'?'}`}
+function selosAparelho(f){const tem=f.pts&&f.pts.length,p=PERFIS[f.pkey||pkey(f)];
+  return`<div class="selos"><span class="selo2 ${tem?'tab':'est'}">${tem?(f.custom?'Intensidade medida':'Intensidade pela tabela do fabricante'):f.lmDuvidoso?'Lúmens do fabricante não verificados':f.lm?'Intensidade estimada pelos lúmens':'Sem dados de luz: meça'}</span>
+  <span class="selo2 ${p?'tab':'est'}">${p?'Perfil de cor medido':(['cmy','rgb','rgbw'].includes(f.cor)||(f.cor==='cto'&&!f.kMin)||(f.cor==='ctb'&&!f.kMax)?'Cor precisa de perfil':'Cor estimada pela ficha')}</span></div>`}
+function ficha(f0){const f=efetivo(f0);$('ficha').innerHTML=`${selosAparelho(f)}
+  <div class="linha2"><span>Zoom <b>${f.semZoom?'não informado':f.zoom[0]===f.zoom[1]?nf(f.zoom[0],1)+'° fixo':nf(f.zoom[0],1)+' a '+nf(f.zoom[1],1)+'°'}</b></span>${f.lm?`<span><b>${nf(f.lm)}</b> lm</span>`:''}<span>${textoCor(f0)}</span>${f.cri?`<span>CRI <b>${esc(f.cri)}</b></span>`:''}</div>
+  ${f.obs?`<p class="nota">${esc(f.obs)}</p>`:''}${sisSelect('sisMontar',f0)}`;ligarSis('sisMontar')}
+
+/* ---------- cálculo do Montar ---------- */
+function calcular(){
+  const f=efetivo(achar(S.fx));
+  const dh=Math.max(0.1,S.alt-1.6),dx=Math.max(0.1,S.dist+S.prof),tiro=Math.hypot(dh,dx),elev=deg(Math.atan2(dh,dx));
+  const esp=S.larg/S.qtd;const zIdeal=deg(2*Math.atan(esp*1.5/2/tiro)),zoom=clamp(zIdeal,f.zoom[0],f.zoom[1]);
+  const diam=2*tiro*Math.tan(rad(zoom/2)),I=f.semZoom?null:candela(f,zoom);
+  const cor=resolverCor(f,S.kAlvo),fator=cor?cor.fator:1;
+  const E=I?I/(tiro*tiro)*Math.cos(rad(elev))*fator:null,dim=E?S.luxAlvo/E*100:null;
+  plano={f,tiro,elev,zoom,zIdeal,diam,esp,E,dim:dim==null?100:clamp(dim,0,100),cor};
+
+  $('rZoom').textContent=nf(zoom,1);$('rDiam').textContent=`foco de ${nf(diam,1)} m no rosto`;
+  $('rDim').textContent=dim==null?'?':dim>100?'100':nf(Math.max(1,dim));$('rLux').textContent=E?`${nf(E)} lux a 100%`:'falta lúmens ou medição';
+  const rv=$('rCorVal');
+  if(cor){const vs=cor.vals;$('rCorRot').textContent=vs.length===1?NOME_CANAL[vs[0].ch]:'Mistura';
+    if(vs.length===1){rv.className='val';rv.innerHTML=`${nf(vs[0].v)}<small>%</small>`}else{rv.className='val multi';rv.innerHTML=vs.map(x=>`${x.ch} ${nf(x.v)}`).join('<br>')}
+    $('rCorSub').textContent=`${nf(S.kAlvo)} K, ${cor.fonte}`}
+  else{$('rCorRot').textContent='Cor';rv.className='val';rv.innerHTML='?';$('rCorSub').textContent='meça o perfil de cor na aba Aparelhos'}
+  $('rTiro').textContent=nf(tiro,1);$('rAng').textContent=`${nf(elev)}° de inclinação`;
+  setLuz(S.kAlvo);$('resumoTopo').textContent=`${S.qtd} × ${f.marca} ${f.modelo}, ${nf(S.kAlvo)} K`;
+
+  const av=[];
+  if(dim==null)av.push(['fo',f.semZoom?'O fabricante não informa o zoom deste aparelho. Na aba Aparelhos, copie como base e informe o zoom e uma medida de luz.':'Sem lúmens nem medição de luz para este aparelho. Edite o cadastro na aba Aparelhos.']);
+  else if(dim>100)av.push(['fo',`Não chega em ${nf(S.luxAlvo)} lux: no máximo dá ${nf(E)} lux. Aproxime a vara, feche o zoom ou some aparelhos.`]);
+  else if(dim<15)av.push(['at',`Vai trabalhar com ${nf(dim)}% de intensidade. Confira se a curva de dimmer não fica instável tão baixo.`]);
+  else av.push(['ok',`Sobra luz: ${nf(dim)}% já entrega ${nf(S.luxAlvo)} lux.`]);
+  if(zIdeal<f.zoom[0])av.push(['at',`Para emendar os focos o zoom precisaria de ${nf(zIdeal,1)}°, menos que o mínimo. Vai sobrar sobreposição, o que deixa a luz mais uniforme.`]);
+  else if(zIdeal>f.zoom[1])av.push(['fo',`Precisaria de ${nf(zIdeal,1)}° e o aparelho abre só até ${nf(f.zoom[1],1)}°. Com ${S.qtd} aparelhos a ${nf(tiro,1)} m vão sobrar buracos. Some aparelhos ou afaste a vara.`]);
+  else av.push(['ok',`Cada foco cobre 1,5 vez o espaço entre aparelhos (${nf(esp,1)} m), então as bordas se cruzam e a luz emenda.`]);
+  if(elev>55)av.push(['at',`Luz muito de cima (${nf(elev)}°). Vai marcar sombra nos olhos e no queixo. Para rosto, o ideal fica entre 30° e 45°.`]);
+  else if(elev<20)av.push(['at',`Luz muito baixa (${nf(elev)}°). Achata o rosto e ofusca o artista.`]);
+  else av.push(['ok',`Inclinação de ${nf(elev)}° funciona bem para rosto.`]);
+  if(cor&&cor.fora==='frio')av.push(['fo',`${nf(S.kAlvo)} K é mais frio do que este aparelho alcança.`]);
+  if(cor&&cor.fora==='quente')av.push(['fo',`${nf(S.kAlvo)} K é mais quente do que este aparelho alcança.`]);
+  if(cor&&cor.fora==='alcance')av.push(['fo',`A mistura não chega exatamente em ${nf(S.kAlvo)} K. O valor mostrado é o mais perto possível.`]);
+  if(cor&&cor.fonte==='estimativa pela ficha'&&f.cor!=='cct')av.push(['at','A cor é uma estimativa pela ficha. Meça o perfil na aba Aparelhos para acertar de primeira.']);
+  if(cor&&cor.fator<0.7)av.push(['at',`Essa cor derruba a saída para uns ${nf(cor.fator*100)}% do branco. A intensidade já foi calculada com isso.`]);
+  $('avisos').innerHTML=av.map(([c,t])=>`<div class="aviso ${c==='ok'?'':c}">${t}</div>`).join('');
+  desenharCorte();gerarMesa();renderPontos();
+}
+function desenharCorte(){const p=plano,W=360,H=150,pad=18;
+  const sc=Math.min((W-2*pad)/(S.dist+S.prof+2),(H-2*pad)/(Math.max(S.alt,3)+0.6)),X=m=>pad+m*sc,Y=m=>H-pad-m*sc;
+  const vx=X(0),vy=Y(S.alt),bx=X(S.dist),ax=X(S.dist+S.prof),ay=Y(1.6),half=rad(p.zoom/2),dirA=Math.atan2(ay-vy,ax-vx),L=p.tiro*sc*1.08;
+  const p1=[vx+Math.cos(dirA-half)*L,vy+Math.sin(dirA-half)*L],p2=[vx+Math.cos(dirA+half)*L,vy+Math.sin(dirA+half)*L];
+  $('corte').innerHTML=`<rect x="0" y="0" width="${W}" height="${H}" fill="var(--coxia)"/>
+   <line x1="${X(-0.3)}" y1="${Y(0)}" x2="${W-6}" y2="${Y(0)}" stroke="var(--fita)" stroke-width="2"/>
+   <rect x="${bx}" y="${Y(0)}" width="${Math.max(0,W-6-bx)}" height="${pad-4}" fill="var(--case)"/>
+   <line x1="${bx}" y1="${Y(0)}" x2="${bx}" y2="${pad+4}" stroke="var(--fita)" stroke-dasharray="3 4"/>
+   <text x="${bx+4}" y="${pad}" fill="var(--poeira)" font-size="10" font-family="Archivo,sans-serif">boca de cena</text>
+   <polygon points="${vx},${vy} ${p1[0]},${p1[1]} ${p2[0]},${p2[1]}" fill="var(--luz)" fill-opacity=".22"/>
+   <line x1="${vx}" y1="${vy}" x2="${ax}" y2="${ay}" stroke="var(--luz)" stroke-width="1.5"/>
+   <rect x="${vx-7}" y="${vy-4}" width="14" height="9" rx="2" fill="var(--giz)"/>
+   <line x1="${X(-0.3)}" y1="${vy-5}" x2="${vx+12}" y2="${vy-5}" stroke="var(--giz)" stroke-width="2"/>
+   <circle cx="${ax}" cy="${Y(1.72)}" r="${0.14*sc}" fill="var(--giz)"/>
+   <line x1="${ax}" y1="${Y(1.55)}" x2="${ax}" y2="${Y(0)}" stroke="var(--giz)" stroke-width="${Math.max(2,0.18*sc)}" stroke-linecap="round"/>
+   <text x="${(vx+ax)/2+6}" y="${(vy+ay)/2-6}" fill="var(--giz)" font-size="11" font-family="Archivo,sans-serif">${nf(p.tiro,1)} m</text>`}
+
+function ler(){campos.forEach(k=>{const v=parseFloat($(k).value);if(isFinite(v))S[k]=v});S.qtd=clamp(Math.round(S.qtd),1,60);S.fid=Math.round(S.fid);
+  S.fx=$('fx').value;S.kAlvo=+$('kAlvo').value;salvarS()}
+['fx','kAlvo',...campos].forEach(k=>$(k).addEventListener('change',()=>{const antes=S.fx,qa=S.qtd;ler();
+  if(S.fx!==antes||S.qtd!==qa){medidas={};store.set('fot.medidas3',medidas);ajuste=null;store.set('fot.ajuste3',null);ficha(achar(S.fx));sel=S.fx;renderAparelhos()}
+  if(k==='kAlvo'){ajuste=null;store.set('fot.ajuste3',null)}calcular()}));
+
+function camLux(){const N=+$('camF').value,t=1/(+$('camT').value),iso=+$('camIso').value;if(!(N&&t&&iso))return null;
+  return 2.5*Math.pow(2,Math.log2(N*N/t)-Math.log2(iso/100))} // constante de luz incidente C = 250
+function atualizaCam(){const l=camLux();$('camLux').textContent=l?nf(Math.round(l/10)*10):'–'}
+['camF','camT','camIso'].forEach(k=>$(k).addEventListener('input',atualizaCam));atualizaCam();
+$('btnCam').onclick=()=>{const l=camLux();if(!l)return;$('luxAlvo').value=Math.round(l/10)*10;ler();calcular()};
+
+/* ---------- aparelhos: lista, cadastro, perfil ---------- */
+let editando=null;
+function renderAparelhos(){
+  const q=$('fBusca').value.trim().toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,''),fFab=$('fFab').value,fCor=$('fCor').value,fOrig=$('fOrig').value;
+  const norm=s=>String(s).toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g,'');
+  const passa=f=>(!q||norm(f.marca+' '+f.modelo).includes(q))&&(!fFab||f.marca===fFab)&&
+    (!fCor||(fCor==='cto'?['cto','ctb'].includes(f.cor):fCor==='rgb'?['rgb','rgbw'].includes(f.cor):f.cor===fCor))&&
+    (!fOrig||(fOrig==='fab'?!f.custom:fOrig==='meus'?f.custom:fOrig==='perfil'?temPerfil(f):(f.lm||(f.pts&&f.pts.length))&&!f.semZoom));
+  const lista=todos().filter(passa),filtrando=!!(q||fFab||fCor||fOrig);
+  $('fConta').textContent=filtrando?(lista.length?`${lista.length} de ${todos().length} aparelhos. Toque no modelo para abrir os dados e o perfil de cor.`:'Nenhum aparelho com esses filtros. Limpe a busca ou cadastre o aparelho.'):`${todos().length} aparelhos de ${marcas().length} fabricantes. Toque no fabricante para ver os modelos e no modelo para abrir os dados e o perfil de cor.`;
+  const grupos={};lista.forEach(f=>(grupos[f.marca]=grupos[f.marca]||[]).push(f));
+  $('lista').className='grupos';
+  $('lista').innerHTML=Object.keys(grupos).sort((a,b)=>a.localeCompare(b,'pt')).map(m=>`<details class="grupo" ${filtrando||grupos[m].some(f=>f.id===sel)?'open':''}><summary>${esc(m)}<small>${grupos[m].length} ${grupos[m].length===1?'modelo':'modelos'}</small></summary><div class="lista">`+
+    grupos[m].sort((a,b)=>a.modelo.localeCompare(b.modelo,'pt')).map(f=>`<button type="button" aria-pressed="${f.id===sel}" data-id="${esc(f.id)}"><span>${esc(f.modelo)}<br><small>${f.custom?'Cadastrado por você':'Ficha do fabricante'}${temPerfil(f)?', perfil medido':''}</small></span><small>${(sisDe(f)||'').toUpperCase()}</small></button>`).join('')+'</div></details>').join('');
+  $('lista').querySelectorAll('button').forEach(b=>b.onclick=()=>{sel=b.dataset.id;perfilRasc=null;renderAparelhos();$('detalhe').scrollIntoView({behavior:matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'start'})});
+  const f=achar(sel);
+  $('detalhe').innerHTML=`<h2>${esc(f.marca)} ${esc(f.modelo)}</h2>${selosAparelho(efetivo(f))}
+    <div class="linha2 nota">${f.pot?`<span>${nf(f.pot)} W</span> `:''}<span>Zoom ${f.semZoom?'não informado':nf(f.zoom[0],1)+' a '+nf(f.zoom[1],1)+'°'}</span> ${f.lm?`<span>${nf(f.lm)} lm</span> `:''}<span>${textoCor(f)}</span></div>
+    ${f.obs?`<p class="nota">${esc(f.obs)}</p>`:''}
+    <div class="acoes"><button type="button" id="btnUsar" class="primario">Usar no Montar</button>${f.custom?'<button type="button" id="btnEditar">Editar</button><button type="button" id="btnApagar">Apagar</button>':'<button type="button" id="btnCopiarFx">Copiar como base</button>'}</div>`;
+  $('btnUsar').onclick=()=>{S.fx=f.id;salvarS();preencherSelect();ficha(f);medidas={};ajuste=null;calcular();$('t-montar').click()};
+  if($('btnEditar'))$('btnEditar').onclick=()=>abrirCad(f);
+  if($('btnApagar'))$('btnApagar').onclick=async e=>{const b=e.currentTarget;if(b.dataset.conf!=='1'){b.dataset.conf='1';b.textContent='Toque de novo para apagar';return}
+    await apagarAparelho(f.id).catch(()=>{});sel=FABRICA[0].id;if(S.fx===f.id){S.fx=sel;salvarS()}atualizarTudo()};
+  if($('btnCopiarFx'))$('btnCopiarFx').onclick=()=>abrirCad({...f,id:null,modelo:f.modelo+' (cópia)',custom:true});
+  renderPerfil();
+}
+function abrirCad(f){editando=f;$('fCad').hidden=false;$('cadTitulo').textContent=f&&f.id?'Editar aparelho':'Novo aparelho';
+  const v=(id,x)=>$(id).value=x??'';v('cMarca',f&&f.marca);v('cModelo',f&&f.modelo);v('cPot',f&&f.pot);v('cLm',f&&f.lm);
+  v('cZmin',f&&!f.semZoom?f.zoom[0]:'');v('cZmax',f&&!f.semZoom?f.zoom[1]:'');$('cCor').value=(f&&f.cor)||'cto';v('cKnat',f&&f.kNat);v('cKmin',f&&f.kMin);v('cKmax',f&&f.kMax);
+  v('cMlux','');v('cMdist','');v('cMzoom','');$('msgCad').textContent='';$('fCad').scrollIntoView({behavior:'smooth',block:'start'})}
+$('btnNovo').onclick=()=>abrirCad(null);
+$('btnCancelaCad').onclick=()=>{$('fCad').hidden=true;editando=null};
+$('fCad').addEventListener('submit',async e=>{e.preventDefault();
+  const n=id=>{const x=parseFloat($(id).value);return isFinite(x)?x:null};
+  const marca=$('cMarca').value.trim(),modelo=$('cModelo').value.trim();let zmin=n('cZmin'),zmax=n('cZmax');
+  if(!marca||!modelo){$('msgCad').textContent='Informe fabricante e modelo.';return}
+  if(zmin==null&&zmax==null){$('msgCad').textContent='Informe o zoom. Se o ângulo for fixo, use o mesmo valor nos dois campos.';return}
+  if(zmin==null)zmin=zmax;if(zmax==null)zmax=zmin;if(zmin>zmax)[zmin,zmax]=[zmax,zmin];
+  const lux=n('cMlux'),d=n('cMdist'),za=n('cMzoom'),lm=n('cLm');
+  const pts=(editando&&editando.custom&&editando.pts)?editando.pts.slice():[];
+  if(lux&&d&&za)pts.push([clamp(za,zmin,zmax),lux*d*d]);
+  if(!lm&&!pts.length){$('msgCad').textContent='Informe os lúmens ou uma medição de luz. Sem isso o app não calcula a intensidade.';return}
+  const id=(editando&&editando.custom&&editando.id)||('c-'+Date.now().toString(36));
+  const f={id,custom:true,marca,modelo,pot:n('cPot'),lm,zoom:[zmin,zmax],pts,cor:$('cCor').value,kNat:n('cKnat'),kMin:n('cKmin'),kMax:n('cKmax'),cri:null,
+    fonte:'Cadastrado por você'+(pts.length?' com luz medida':''),url:null};
+  try{await gravarAparelho(f)}catch(err){$('msgCad').textContent='Salvo neste celular. A biblioteca online recusou a gravação.'}
+  $('fCad').hidden=true;editando=null;sel=id;atualizarTudo();$('msgBib').textContent=`${marca} ${modelo} salvo na biblioteca.`});
+
+/* perfil de cor: passos de medição conforme o sistema de cor */
+let perfilRasc=null;
+function passosPerfil(f){
+  if(['cto','ctb','cct'].includes(f.cor)){const c=CANAIS[f.cor][0];return[0,25,50,75,100].map(v=>({k:c+v,rot:`${NOME_CANAL[c]} em ${v}%`,v}))}
+  if(f.cor==='cmy')return[{k:'branco',rot:'Aberto, sem cor'}].concat(...['C','M','Y'].map(fl=>[25,50,75,100].map(v=>({k:fl+v,fl,v,rot:`Só ${NOME_CANAL[fl].toLowerCase()} em ${v}%`}))));
+  return CANAIS[f.cor].map(c=>({k:c,ch:c,rot:`Só ${NOME_CANAL[c].toLowerCase()} em 100%`}))}
+function cmdPasso(f,p){const id=+$('idTeste').value||S.fid,can=CANAIS[f.cor],a=c=>`"${S.atr[c]||ATR_PADRAO[c]}"`;let at=[];
+  if(['cto','ctb','cct'].includes(f.cor))at=[[can[0],p.v]];
+  else if(f.cor==='cmy')at=can.map(c=>[c,p.k==='branco'?0:(c===p.fl?p.v:0)]);
+  else at=can.map(c=>[c,c===p.ch?100:0]);
+  return[`Fixture ${id}`,...at.map(([c,v])=>`Attribute ${a(c)} At ${v}`),`Attribute ${a('DIM')} At 100`].join('\n')}
+$('idTeste').value=S.fid;$('idTeste').addEventListener('input',()=>renderPerfil());
+function guiaPerfil(f){if(f.sisAlt&&['cto','ctb','cct'].includes(f.cor))return`Meça o aparelho com o ${NOME_CANAL[CANAIS[f.cor][0]]} em 0, 25, 50, 75 e 100%. Como esse não é o sistema da ficha, o app só calcula a cor depois dessas medidas.`;
+  if(['cto','ctb','cct'].includes(f.cor))return`Meça o aparelho com o ${NOME_CANAL[CANAIS[f.cor][0]]} em 0, 25, 50, 75 e 100%. O app troca a estimativa da ficha pela curva real deste aparelho.`;
+  if(f.cor==='cmy')return'Meça o branco aberto e depois cada bandeira sozinha em 25, 50, 75 e 100%. Com isso o app calcula quanto de ciano, magenta e amarelo leva cada temperatura.';
+  return`Acenda um canal por vez a 100%, com os outros em zero, e meça. Como a luz do LED soma, o app calcula a porcentagem de cada canal para qualquer temperatura.`}
+function renderPerfil(){
+  const f=efetivo(achar(sel)),P=perfilRasc||PERFIS[f.pkey]||null,passos=passosPerfil(f);$('sisPerfilBox').innerHTML=sisSelect('sisPerfil',achar(sel));ligarSis('sisPerfil');
+  $('perfilGuia').textContent=guiaPerfil(f);
+  const val=k=>{if(!P)return null;if(P.tipo==='niveis'){const p=P.pontos.find(x=>CANAIS[f.cor][0]+x.v===k);return p}
+    if(P.tipo==='cmy'){if(k==='branco')return P.branco;const fl=k[0],v=+k.slice(1);return(P.flags[fl]||[]).find(x=>x.v===v)}
+    return P.canais&&P.canais[k]};
+  const temExpo=P&&JSON.stringify(P).includes('"expo":false');
+  $('tabPerfil').innerHTML='<thead><tr><th>Medida</th><th class="num">Leitura</th><th></th></tr></thead><tbody>'+passos.map(p=>{const m=val(p.k);
+    const leitura=m?(m.K?`${nf(Math.round(m.K/50)*50)} K`:'')+(m.cor?`<span class="amostrinha" style="background:rgb(${m.cor.join(',')})"></span>`:'')+(m.K?'':'medido'):'–';
+    return`<tr><td>${p.rot}<code class="cmd">${esc(cmdPasso(f,p))}</code></td><td class="num">${leitura}</td><td><button type="button" data-k="${p.k}">${m?'Refazer':'Medir'}</button></td></tr>`}).join('')+'</tbody>';
+  $('tabPerfil').querySelectorAll('button').forEach(b=>b.onclick=()=>{const p=passos.find(x=>x.k===b.dataset.k);medir(p.rot,o=>{
+    const reg={rgb:o.rgb,expo:o.expo,cor:o.cor,K:Math.round(o.T),lum:rgb2xyz(...o.rgb)[1]};
+    let R=perfilRasc||(PERFIS[f.pkey]?JSON.parse(JSON.stringify(PERFIS[f.pkey])):null);
+    if(['cto','ctb','cct'].includes(f.cor)){R=R&&R.tipo==='niveis'?R:{tipo:'niveis',pontos:[]};R.pontos=R.pontos.filter(x=>x.v!==p.v).concat([{v:p.v,...reg}])}
+    else if(f.cor==='cmy'){R=R&&R.tipo==='cmy'?R:{tipo:'cmy',branco:null,flags:{C:[],M:[],Y:[]}};if(p.k==='branco')R.branco=reg;else R.flags[p.fl]=R.flags[p.fl].filter(x=>x.v!==p.v).concat([{v:p.v,...reg}])}
+    else{R=R&&R.tipo==='aditivo'?R:{tipo:'aditivo',canais:{}};R.canais[p.ch]=reg}
+    perfilRasc=R;$('selo').textContent=`${p.rot}: ${o.cor?'medido':''}${isFinite(o.T)&&['cto','ctb','cct','cmy'].includes(f.cor)?', '+nf(Math.round(o.T/50)*50)+' K':''}`;renderPerfil()})});
+  const completo=P&&(P.tipo==='niveis'?P.pontos.length>=2:P.tipo==='cmy'?!!P.branco&&['C','M','Y'].some(fl=>P.flags[fl].length):['R','G','B'].every(c=>P.canais[c]));
+  $('btnSalvaPerfil').disabled=!perfilRasc||!completo;$('btnApagaPerfil').disabled=!PERFIS[f.pkey];
+  const mix=P&&P.tipo!=='niveis'&&!P.expo&&JSON.stringify(P).includes('"expo":false');
+  $('msgPerfil').textContent=perfilRasc?(completo?'Medidas novas ainda não salvas.':'Continue medindo. Faltam medidas para o perfil funcionar.'):(PERFIS[f.pkey]?'Perfil salvo. Ele já está sendo usado no cálculo.':'')+
+    (mix?' Algumas fotos vieram sem dados de exposição: confira se a exposição estava travada.':'');
+}
+$('btnSalvaPerfil').onclick=async()=>{const f=efetivo(achar(sel));try{await gravarPerfil(f.pkey,perfilRasc)}catch(e){$('msgPerfil').textContent='Salvo neste celular. A biblioteca online recusou.'}perfilRasc=null;atualizarTudo();$('msgPerfil').textContent='Perfil salvo. O cálculo já usa as medidas.'};
+$('btnApagaPerfil').onclick=async()=>{const f=efetivo(achar(sel));perfilRasc=null;await gravarPerfil(f.pkey,null).catch(()=>{});atualizarTudo()};
+
+/* ---------- mesa ---------- */
+function valores(){const p=plano,arr=[];
+  for(let i=0;i<S.qtd;i++){const a=ajuste&&ajuste[i];const K=a?1e6/a.m:S.kAlvo;const c=a?resolverCor(p.f,K):p.cor;
+    arr.push({id:S.fid+i,cor:c?c.vals:null,dim:a?a.dim:p.dim})}return arr}
+const r1=v=>Math.round(v*10)/10;
+function renderAtrs(){const can=CANAIS[plano.f.cor]||[];$('atrs').innerHTML=[...can,'DIM'].map(c=>`<div class="campo"><label for="atr-${c}">${c==='DIM'?'Intensidade':NOME_CANAL[c]}</label><input id="atr-${c}" type="text" value="${esc(S.atr[c])}"></div>`).join('');
+  $('atrs').querySelectorAll('input').forEach(i=>i.addEventListener('input',()=>{S.atr[i.id.slice(4)]=i.value.trim()||ATR_PADRAO[i.id.slice(4)];salvarS();$('cmds').textContent=linhasCmd().join('\n')}))}
+function linhasCmd(){
+  const v=valores(),last=S.fid+S.qtd-1,L=[],nome=`Foto ${S.kAlvo}K`,attr=(x)=>x.map(c=>`Attribute "${S.atr[c.ch]}" At ${r1(c.v)}`);
+  const iguais=v.every(x=>JSON.stringify(x.cor)===JSON.stringify(v[0].cor)&&x.dim===v[0].dim);
+  L.push('ClearAll');
+  if(iguais){L.push(`Fixture ${S.fid} Thru ${last}`);if(v[0].cor)L.push(...attr(v[0].cor));L.push(`Attribute "${S.atr.DIM}" At ${r1(v[0].dim)}`)}
+  else v.forEach(x=>{L.push(`Fixture ${x.id}`);if(x.cor)L.push(...attr(x.cor));L.push(`Attribute "${S.atr.DIM}" At ${r1(x.dim)}`)});
+  L.push(`Fixture ${S.fid} Thru ${last}`);
+  if(v[0].cor){L.push(`Store Preset 4.${S.pCor} /o`);L.push(`Label Preset 4.${S.pCor} "${nome}"`)}
+  L.push(`Store Preset 1.${S.pDim} /o`);L.push(`Label Preset 1.${S.pDim} "${nome} ${S.luxAlvo}lx"`);L.push('ClearAll');return L}
+function luaPlugin(){const L=linhasCmd(),last=S.fid+S.qtd-1,f=plano.f;
+  const semAcento=s=>String(s).normalize('NFD').replace(/[̀-ͯ]/g,'');
+  return `-- Fotometro de Palco: presets para ${S.qtd}x ${semAcento(f.marca+' '+f.modelo)}
+-- Alvo ${S.kAlvo} K, ${S.luxAlvo} lux. Zoom sugerido ${r1(plano.zoom)} graus.
+-- Gerado em ${new Date().toLocaleString('pt-BR')}
+
+local cmds = {
+${L.map(c=>'  '+JSON.stringify(c)).join(',\n')}
+}
+
+local function main()
+  local ok = gma.gui.confirm('Fotometro de Palco', 'Criar presets 4.${S.pCor} e 1.${S.pDim} nos fixtures ${S.fid} a ${last}?')
+  if not ok then return end
+  for i, c in ipairs(cmds) do
+    gma.cmd(c)
+    gma.sleep(0.05)
+  end
+  gma.feedback('Fotometro de Palco: presets criados')
+end
+
+return main
+`}
+const xmlPlugin=()=>`<?xml version="1.0" encoding="utf-8"?>
+<MA xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xmlns="http://schemas.malighting.de/grandma2/xml/MA" xsi:schemaLocation="http://schemas.malighting.de/grandma2/xml/MA http://schemas.malighting.de/grandma2/xml/3.3.4/MA.xsd" major_vers="3" minor_vers="3" stream_vers="4">
+\t<Info datetime="${new Date().toISOString().slice(0,19)}" showfile="fotometro" />
+\t<Plugin index="1" execute_on_load="0" name="Fotometro" luafile="fotometro.lua" />
+</MA>
+`;
+function gerarMesa(){if(!plano)return;renderAtrs();$('cmds').textContent=linhasCmd().join('\n')}
+const CRC=(()=>{const t=new Uint32Array(256);for(let n=0;n<256;n++){let c=n;for(let k=0;k<8;k++)c=c&1?0xEDB88320^(c>>>1):c>>>1;t[n]=c>>>0}return t})();
+const crc32=u=>{let c=0xFFFFFFFF;for(let i=0;i<u.length;i++)c=CRC[(c^u[i])&255]^(c>>>8);return(c^0xFFFFFFFF)>>>0};
+function zip(files){const enc=new TextEncoder(),parts=[],cd=[];let off=0;
+  for(const f of files){const name=enc.encode(f.name),data=enc.encode(f.data),crc=crc32(data);
+    const h=new DataView(new ArrayBuffer(30));h.setUint32(0,0x04034b50,true);h.setUint16(4,20,true);h.setUint16(6,0x0800,true);
+    h.setUint16(12,33,true);h.setUint32(14,crc,true);h.setUint32(18,data.length,true);h.setUint32(22,data.length,true);h.setUint16(26,name.length,true);
+    parts.push(new Uint8Array(h.buffer),name,data);
+    const c=new DataView(new ArrayBuffer(46));c.setUint32(0,0x02014b50,true);c.setUint16(4,20,true);c.setUint16(6,20,true);c.setUint16(8,0x0800,true);
+    c.setUint16(14,33,true);c.setUint32(16,crc,true);c.setUint32(20,data.length,true);c.setUint32(24,data.length,true);c.setUint16(28,name.length,true);
+    c.setUint32(42,off,true);cd.push(new Uint8Array(c.buffer),name);off+=30+name.length+data.length}
+  const cdSize=cd.reduce((s,a)=>s+a.length,0),e=new DataView(new ArrayBuffer(22));
+  e.setUint32(0,0x06054b50,true);e.setUint16(8,files.length,true);e.setUint16(10,files.length,true);e.setUint32(12,cdSize,true);e.setUint32(16,off,true);
+  return new Blob([...parts,...cd,new Uint8Array(e.buffer)],{type:'application/zip'})}
+let downloads=null;
+if(window.claude&&window.claude.use)window.claude.use('downloads').then(d=>{downloads=d}).catch(()=>{});
+$('btnZip').onclick=async()=>{
+  const blob=zip([{name:'gma2/plugins/fotometro.xml',data:xmlPlugin()},{name:'gma2/plugins/fotometro.lua',data:luaPlugin()}]),filename=`fotometro-grandma2-${S.kAlvo}K.zip`;
+  if(downloads){try{await downloads.save({filename,data:blob});$('msgMesa').textContent='Plugin salvo.'}
+    catch(e){$('msgMesa').textContent=e&&e.code==='declined'?'Download cancelado.':'Não deu para salvar o arquivo aqui. Use Copiar comandos e cole numa macro.'}}
+  else{try{const a=document.createElement('a');a.href=URL.createObjectURL(blob);a.download=filename;document.body.appendChild(a);a.click();a.remove();$('msgMesa').textContent='Plugin salvo.'}
+    catch(e){$('msgMesa').textContent='Não deu para salvar o arquivo aqui. Use Copiar comandos.'}}};
+$('btnCopiar').onclick=()=>{const t=$('cmds').textContent;const ok=()=>$('msgMesa').textContent='Comandos copiados. Cole na linha de comando ou numa macro, uma linha por vez.';
+  const sel=()=>{const r=document.createRange();r.selectNodeContents($('cmds'));const s=getSelection();s.removeAllRanges();s.addRange(r);$('msgMesa').textContent='Texto selecionado. Copie pelo menu do aparelho.'};
+  try{navigator.clipboard.writeText(t).then(ok,sel)}catch(e){sel()}};
+['pCor','pDim'].forEach(k=>$(k).addEventListener('input',()=>{ler();$('cmds').textContent=linhasCmd().join('\n')}));
+
+/* ---------- aferição ---------- */
+let pontoAtivo=null;
+function pontos(){const arr=[];for(let i=0;i<S.qtd;i++){arr.push({k:'c'+i,nome:`Foco ${i+1}`,fx:i});if(i<S.qtd-1)arr.push({k:'e'+i,nome:`Entre ${i+1} e ${i+2}`,fx:null,a:i,b:i+1})}return arr}
+function analiseAfericao(){
+  const tol=+$('tol').value,tolK=+$('tolK').value,P=pontos(),centros=P.filter(p=>p.fx!=null&&medidas[p.k]);
+  const temLux=centros.length>0&&centros.every(p=>medidas[p.k].lux!=null);
+  const med=centros.length?centros.map(p=>medidas[p.k].stops).sort((a,b)=>a-b)[Math.floor(centros.length/2)]:0;
+  const dev=m=>temLux&&m.lux!=null?Math.log2(m.lux/S.luxAlvo):m.stops-med;
+  return{tol,tolK,P,centros,temLux,dev}}
+function renderPontos(){if(!plano)return;
+  const{tol,tolK,P,centros,temLux,dev}=analiseAfericao(),f=plano.f,v=valores();
+  const cor=d=>Math.abs(d)<=tol?'var(--ok)':Math.abs(d)<=tol*2?'var(--atencao)':'var(--fora)';
+  const corK=d=>Math.abs(d)<=tolK?'var(--ok)':Math.abs(d)<=tolK*2?'var(--atencao)':'var(--fora)';
+  $('tabPontos').innerHTML='<thead><tr><th>Ponto</th><th class="num">'+(temLux?'Lux':'Stops')+'</th><th class="num">Luz</th><th class="num">K</th><th class="num">Cor</th><th></th></tr></thead><tbody>'+
+   P.map(p=>{const m=medidas[p.k];let c='<td class="num">–</td><td class="num">–</td><td class="num">–</td><td class="num">–</td>';
+    if(m){const d=dev(m),dm=1e6/S.kAlvo-1e6/m.T;
+      c=`<td class="num">${temLux&&m.lux!=null?nf(m.lux):nf(m.stops,1)}</td><td class="num"><span class="desvio" style="background:${cor(d)}">${(d>0?'+':'')+nf(d,1)}</span></td>
+        <td class="num">${nf(Math.round(m.T/50)*50)}</td><td class="num"><span class="desvio" style="background:${corK(dm)}">${Math.abs(dm)<=tolK?'ok':(dm>0?'fria':'quente')}</span></td>`}
+    return`<tr class="${pontoAtivo===p.k?'ativo':''}"><td>${p.nome}</td>${c}<td><button type="button" data-k="${p.k}">${m?'Refazer':'Medir'}</button></td></tr>`}).join('')+'</tbody>';
+  $('tabPontos').querySelectorAll('button').forEach(b=>b.onclick=()=>{pontoAtivo=b.dataset.k;const pt=P.find(p=>p.k===pontoAtivo);
+    medir(pt.nome,o=>{medidas[pontoAtivo]={lux:o.lux??null,stops:o.stops,T:o.T,duv:o.duv};store.set('fot.medidas3',medidas);
+      $('selo').textContent=`${pt.nome}: ${o.lux!=null?nf(o.lux)+' lux, ':''}${nf(Math.round(o.T/50)*50)} K`;renderPontos()})});
+  const out=[];
+  centros.forEach(p=>{const m=medidas[p.k],i=p.fx,cur=v[i],d=dev(m),txt=[];
+    if(Math.abs(d)>tol){const nd=clamp(cur.dim/Math.pow(2,d),0,100);txt.push(`intensidade de ${nf(cur.dim)}% para ${nf(nd)}%${nd>=100&&d<0?' (já no máximo, falta luz)':''}`)}
+    const dm=1e6/S.kAlvo-1e6/m.T;
+    if(Math.abs(dm)>tolK){const mAtual=ajuste&&ajuste[i]?ajuste[i].m:1e6/S.kAlvo,nova=resolverCor(f,1e6/(mAtual+dm));
+      if(nova&&cur.cor)txt.push(`cor ${dm>0?'mais quente':'mais fria'} em ${nf(Math.abs(dm))} mired: `+nova.vals.map((x,j)=>`${NOME_CANAL[x.ch]} de ${nf(cur.cor[j]?cur.cor[j].v:0)}% para ${nf(x.v)}%`).join(', '));
+      else txt.push(`cor ${nf(Math.abs(dm))} mired ${dm>0?'fria':'quente'} demais; meça o perfil de cor para o app calcular a correção`)}
+    if(Math.abs(m.duv)>0.006)txt.push(m.duv>0?'luz esverdeada: some um pouco de magenta':'luz rosada: tire magenta ou some um pouco de verde');
+    if(txt.length)out.push(`<li><b>Aparelho ${S.fid+i}</b>: ${txt.join('; ')}.</li>`)});
+  P.filter(p=>p.fx==null&&medidas[p.k]).forEach(p=>{const ma=medidas['c'+p.a],mb=medidas['c'+p.b];if(!ma||!mb)return;
+    const d=dev(medidas[p.k])-(dev(ma)+dev(mb))/2;
+    if(d<-tol)out.push(`<li><b>${p.nome}</b>: a emenda cai ${nf(-d,1)} stop. Abra o zoom dos aparelhos ${S.fid+p.a} e ${S.fid+p.b} para uns ${nf(Math.min(f.zoom[1],plano.zoom*1.2),1)}°.</li>`)});
+  $('correcao').innerHTML=!Object.keys(medidas).length?'<h3>Correções</h3><p class="nota">Meça pelo menos os focos. As correções aparecem aqui, aparelho por aparelho.</p>':
+    out.length?`<h3>Correções</h3><ul>${out.join('')}</ul>${!temLux?'<p class="nota">Sem dados de exposição nas fotos: a intensidade é comparada com a mediana dos focos, não com o alvo em lux.</p>':''}`:
+    '<h3>Tudo dentro da tolerância</h3><p class="nota">Luz e cor batem com o alvo nos pontos medidos.</p>';
+  $('btnAplicar').disabled=!out.length}
+$('tol').onchange=renderPontos;$('tolK').onchange=renderPontos;
+$('btnAplicar').onclick=()=>{const{tol,tolK,centros,dev}=analiseAfericao(),v=valores();
+  const novo=v.map((x,i)=>({m:ajuste&&ajuste[i]?ajuste[i].m:1e6/S.kAlvo,dim:x.dim}));
+  centros.forEach(p=>{const m=medidas[p.k],i=p.fx,d=dev(m),dm=1e6/S.kAlvo-1e6/m.T;
+    if(Math.abs(d)>tol)novo[i].dim=clamp(novo[i].dim/Math.pow(2,d),0,100);if(Math.abs(dm)>tolK)novo[i].m+=dm});
+  ajuste=novo;store.set('fot.ajuste3',ajuste);medidas={};store.set('fot.medidas3',medidas);gerarMesa();renderPontos();
+  $('t-mesa').click();$('msgMesa').textContent='Correções aplicadas. Baixe o plugin de novo, rode na mesa e meça mais uma vez para confirmar.'};
+$('btnZerarMed').onclick=()=>{medidas={};store.set('fot.medidas3',medidas);renderPontos()};
+
+function calInfo(){const p=[];if(cal.mired)p.push(`cor ${cal.mired>0?'+':''}${nf(cal.mired)} mired`);
+  ['cinza','sulfite'].forEach(r=>{if(cal.ref[r]!==1)p.push(`lux com ${REFS[r].nome} ×${nf(cal.ref[r],2)}`)});
+  p.push(cal.ref.difusor?'difusor calibrado':'difusor sem calibração');
+  $('calInfo').textContent='Correção ativa: '+p.join(', ')+'.';refGuia()}
+$('btnCalK').onclick=()=>{const k=+$('kReal').value;if(!k){$('calInfo').textContent='Informe a temperatura real da fonte.';return}
+  medir('fonte conhecida',o=>{const bruto=1e6/o.T-cal.mired;cal.mired=1e6/k-bruto;store.set('fot.cal',cal);calInfo();calcular()})};
+$('btnCalLux').onclick=()=>{const l=+$('luxReal').value;if(!l){$('calInfo').textContent='Informe o valor do luxímetro.';return}
+  medir('ponto do luxímetro',o=>{if(o.lux==null){$('calInfo').textContent='A foto veio sem dados de exposição. Sem eles não dá para calibrar lux.';return}cal.ref[ref]=l/o.luxBruto;store.set('fot.cal',cal);calInfo()})};
+let difPasso=null;
+$('btnCalDif').onclick=()=>{const comp=$('difComp').value;
+  if(!difPasso){medir(REFS[comp].nome+' (referência do difusor)',o=>{if(!o.exif){$('calInfo').textContent='A foto veio sem dados de exposição. Sem eles não dá para calibrar o difusor.';return}
+      difPasso=Math.PI*0.125*Math.pow(2,o.ev)/REFS[comp].rho*cal.ref[comp];$('btnCalDif').textContent='2. Medir com o difusor';
+      $('selo').textContent='Agora encoste o difusor na câmera e toque em 2. Medir com o difusor, do mesmo lugar.'});return}
+  medir('difusor',o=>{if(!o.exif){$('calInfo').textContent='A foto veio sem dados de exposição. Meça de novo.';return}
+    cal.ref.difusor=difPasso/(Math.PI*0.125*Math.pow(2,o.ev));difPasso=null;$('btnCalDif').textContent='1. Medir a referência';store.set('fot.cal',cal);calInfo();
+    $('selo').textContent='Difusor calibrado. Escolha Difusor na câmera em cima do visor para usar.'})};
+$('ref').onchange=()=>{ref=$('ref').value;store.set('fot.ref',ref);
+  if(Object.keys(medidas).length){medidas={};store.set('fot.medidas3',medidas);renderPontos();$('selo').textContent='Referência trocada: as medições anteriores foram apagadas, porque não dá para comparar referências diferentes.'}
+  refGuia()};
+$('btnZerarCal').onclick=()=>{cal={mired:0,lux:1,ref:{cinza:1,sulfite:1,difusor:null}};store.set('fot.cal',cal);calInfo();calcular()};calInfo();
+
+(function(){const w=tela.width,h=tela.height,g=ctx.createRadialGradient(w*.5,h*.45,10,w*.5,h*.5,w*.7);
+  g.addColorStop(0,'#e9e6e1');g.addColorStop(.4,'#8d8a86');g.addColorStop(1,'#16141d');ctx.fillStyle=g;ctx.fillRect(0,0,w,h);
+  ctx.fillStyle='#7c7a77';ctx.beginPath();ctx.arc(w/2,h/2,h*.13,0,7);ctx.fill()})();
+
+/* ---------- abas ---------- */
+const abas=['montar','aparelhos','mesa','aferir','cores'];
+function moverVisor(a){const alvo=a==='aparelhos'?$('visorAqui1'):a==='aferir'?$('visorAqui2'):null;$('visorBox').hidden=!alvo;if(alvo)alvo.appendChild($('visorBox'))}
+abas.forEach(a=>$('t-'+a).onclick=()=>{abas.forEach(b=>{$('t-'+b).setAttribute('aria-selected',a===b);$('p-'+b).hidden=a!==b});moverVisor(a);if(a==='cores')desenharRoda();if(a==='aparelhos')renderAparelhos();window.scrollTo({top:0})});
+$('irMesa').onclick=()=>$('t-mesa').click();moverVisor('montar');
+
+/* ---------- círculo cromático ---------- */
+const cR=$('cRoda'),rc=cR.getContext('2d');let hue=30,sat=1,val=1,pronta=false;
+const hsv=(h,s,v)=>{const f=n=>{const k=(n+h/60)%6;return v-v*s*Math.max(0,Math.min(k,4-k,1))};return[f(5),f(3),f(1)].map(c=>Math.round(c*255))};
+/* círculo de luz (RGB) ou de pintor (RYB): a roda gira no seu próprio ângulo e a cor sai sempre em RGB */
+let modo=store.get('fot.roda','luz');
+const W=[0,60,120,180,240,300,360],H=[0,30,60,120,225,280,360];
+const interp=(x,A,B)=>{x=((x%360)+360)%360;for(let i=0;i<6;i++)if(x<=A[i+1])return B[i]+(x-A[i])/(A[i+1]-A[i])*(B[i+1]-B[i]);return x};
+const paraH=w=>modo==='pintor'?interp(w,W,H)%360:((w%360)+360)%360, paraW=h=>modo==='pintor'?interp(h,H,W)%360:((h%360)+360)%360;
+const FATIAS=24,ANEIS=8,PASSO=360/FATIAS;
+const raioAnel=s=>{const j=Math.round(s*ANEIS);return j?(j+.5)/(ANEIS+1):0};
+function desenharRoda(forcar){if(pronta&&!forcar)return;pronta=true;const S=cR.width,r=S/2,img=rc.createImageData(S,S);
+  for(let y=0;y<S;y++)for(let x=0;x<S;x++){const dx=x-r+.5,dy=y-r+.5,d=Math.hypot(dx,dy)/r,i=(y*S+x)*4;if(d>1)continue;
+    const j=Math.min(ANEIS,Math.floor(d*(ANEIS+1))),w=Math.round(((deg(Math.atan2(dy,dx))+450)%360)/PASSO)*PASSO%360;
+    const[R,G,B]=hsv(paraH(w),j/ANEIS,1);img.data[i]=R;img.data[i+1]=G;img.data[i+2]=B;img.data[i+3]=255}
+  rc.putImageData(img,0,0);mira()}
+const posRoda=(h,s)=>{const a=rad(paraW(h)-90),d=raioAnel(s);return`left:${50+Math.cos(a)*d*50}%;top:${50+Math.sin(a)*d*50}%`};
+function mira(){$('mira').style.cssText=posRoda(hue,sat);
+  const[r,g,b]=hsv(hue,sat,val),hex='#'+[r,g,b].map(c=>c.toString(16).padStart(2,'0')).join('').toUpperCase();
+  $('chip').style.background=hex;$('cHex').textContent=hex;$('cRgb').textContent=`${r}, ${g}, ${b}`;
+  $('cCmy').textContent=[r,g,b].map(c=>Math.round((1-c/255)*100)+'%').join(', ');
+  $('cHsv').textContent=`${Math.round(hue)}°, ${Math.round(sat*100)}%, ${Math.round(val*100)}%`;$('vBrilho').textContent=Math.round(val*100)+'%';renderCombo()}
+function pick(e){const b=cR.getBoundingClientRect(),x=(e.clientX-b.left)/b.width-.5,y=(e.clientY-b.top)/b.height-.5,d=Math.min(1,Math.hypot(x,y)*2);
+  sat=Math.min(ANEIS,Math.floor(d*(ANEIS+1)))/ANEIS;hue=paraH(Math.round(((deg(Math.atan2(y,x))+450)%360)/PASSO)*PASSO%360);mira()}
+cR.addEventListener('pointerdown',e=>{cR.setPointerCapture(e.pointerId);pick(e)});cR.addEventListener('pointermove',e=>{if(e.buttons)pick(e)});
+$('brilho').oninput=e=>{val=e.target.value/100;mira()};
+function renderModo(){$('modoRoda').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.m===modo));
+  $('modoNota').textContent=modo==='luz'?'Círculo de luz: as opostas somadas dão branco. É o que vale para misturar luz e para RGB em LED.':'Círculo de pintor: vermelho, amarelo e azul como primárias, o círculo das aulas de arte e da maioria das referências de combinação. Bom para conversar com direção de arte e figurino.'}
+$('modoRoda').querySelectorAll('button').forEach(b=>b.onclick=()=>{const w=paraW(hue);modo=b.dataset.m;store.set('fot.roda',modo);
+  hue=paraH(Math.round(w/PASSO)*PASSO);renderModo();desenharRoda(true)});
+/* combinações: giros no ângulo da roda escolhida */
+let harm=store.get('fot.harm','analogas'),abre=store.get('fot.abre',30);
+const HARM={nenhuma:{f:()=>[{o:0}],nota:''},
+  analogas:{f:a=>[{o:-a},{o:0},{o:a}],nota:'Vizinhas no círculo. Combinam sem brigar: bom para fundo e contra de um mesmo clima.'},
+  complementar:{f:()=>[{o:0},{o:180}],nota:'Opostas no círculo. Dão o maior contraste: luz de frente numa, contra ou fundo na outra.'},
+  dividida:{f:a=>[{o:0},{o:180-a},{o:180+a}],nota:'A cor e as duas vizinhas da oposta. Contraste forte, mas menos duro que a complementar.'},
+  triade:{f:()=>[{o:0},{o:120},{o:240}],nota:'Três cores a 120°. No círculo de pintor, a partir do vermelho, dá as primárias; a partir do laranja, as secundárias. Funciona melhor com uma dominante.'},
+  quadrado:{f:()=>[{o:0},{o:90},{o:180},{o:270}],nota:'Quatro cores a 90°: dois pares de complementares. Bem carregado; escolha uma para dominar e use as outras em detalhe.'},
+  tons:{f:()=>[{o:0,v:.35},{o:0,v:.65},{o:0},{o:0,s:.6},{o:0,s:.3}],nota:'A mesma cor escurecida (shade) e clareada com branco (tint). Monocromático, útil para dar profundidade sem trocar de cor.'}};
+const coresCombo=()=>{const wb=paraW(hue);return HARM[harm].f(abre).map(c=>({h:paraH(wb+c.o),s:c.s!=null?sat*c.s:sat,v:c.v!=null?val*c.v:val,base:c.o===0&&c.s==null&&c.v==null}))};
+const hexDe=(h,s,v)=>'#'+hsv(h,s,v).map(c=>c.toString(16).padStart(2,'0')).join('').toUpperCase();
+function renderCombo(){const cs=coresCombo();
+  $('harm').querySelectorAll('button').forEach(b=>b.setAttribute('aria-pressed',b.dataset.h===harm));
+  $('abreBox').hidden=!(harm==='analogas'||harm==='dividida');$('abre').value=abre;$('vAbre').textContent=abre+'°';
+  $('mirasH').innerHTML=cs.filter(c=>!c.base).map(c=>{const[r,g,b]=hsv(c.h,c.s,c.v);return`<div class="mira h" style="${posRoda(c.h,c.s)};background:rgb(${r},${g},${b})"></div>`}).join('');
+  $('combo').innerHTML=harm==='nenhuma'?'':cs.map((c,i)=>{const hx=hexDe(c.h,c.s,c.v);return`<button type="button" class="${c.base?'base':''}" data-i="${i}" style="background:${hx}" aria-label="${hx}${c.base?', cor base':''}"><span>${hx}</span></button>`}).join('');
+  $('combo').querySelectorAll('button').forEach(b=>b.onclick=()=>{const c=cs[+b.dataset.i];hue=c.h;sat=c.s;val=c.v;$('brilho').value=Math.round(val*100);mira()});
+  $('harmNota').textContent=HARM[harm].nota+(harm==='nenhuma'?'':' Toque numa das cores para virar a base.');
+  $('btnGuardarCombo').hidden=harm==='nenhuma'}
+$('harm').querySelectorAll('button').forEach(b=>b.onclick=()=>{harm=b.dataset.h;store.set('fot.harm',harm);renderCombo()});
+$('abre').oninput=e=>{abre=+e.target.value;store.set('fot.abre',abre);renderCombo()};
+$('btnGuardarCombo').onclick=()=>{coresCombo().forEach(c=>paleta.push({nome:hexDe(c.h,c.s,c.v),h:c.h,s:c.s,v:c.v}));store.set('fot.paleta',paleta);renderPaleta()};
+renderModo();
+let paleta=store.get('fot.paleta',[{nome:'Âmbar',h:30,s:.9,v:1},{nome:'Lavanda',h:265,s:.45,v:1},{nome:'Azul congo',h:250,s:1,v:.85},{nome:'Ciano',h:190,s:.8,v:1}]);
+function renderPaleta(){$('paleta').innerHTML=paleta.map((p,i)=>{const[r,g,b]=hsv(p.h,p.s,p.v);return`<button type="button" data-i="${i}" style="background:rgb(${r},${g},${b})" aria-label="${esc(p.nome)}"><span>${esc(p.nome)}</span></button>`}).join('');
+  $('paleta').querySelectorAll('button').forEach(b=>b.onclick=()=>{const p=paleta[+b.dataset.i];hue=p.h;sat=p.s;val=p.v;$('brilho').value=Math.round(val*100);mira()})}
+$('btnGuardar').onclick=()=>{paleta.push({nome:$('cHex').textContent,h:hue,s:sat,v:val});store.set('fot.paleta',paleta);renderPaleta()};
+renderPaleta();mira();
+
+/* ---------- dicas passo a passo ---------- */
+const PASSOS=[
+  {tit:'Vamos fazer a luz da foto',txt:'Vou te levar passo a passo até a luz ficar certa para a câmera. Você vai precisar do celular e de uma folha branca de papel. Quando já souber o caminho, é só tocar em Desligar dicas.',vai:'Começar'},
+  {aba:'montar',alvo:'fab',tit:'Escolha o aparelho',txt:'Toque em Fabricante e escolha a marca dos moving lights que vão fazer a luz da foto. Depois escolha o modelo. Se ele não estiver na lista, cadastre na aba Aparelhos.'},
+  {aba:'montar',alvo:'qtd',tit:'Quantos e qual número',txt:'Diga quantos aparelhos vão iluminar e o número do primeiro deles na mesa (o ID do patch). O app conta os outros em sequência.'},
+  {aba:'montar',alvo:'alt',tit:'Onde eles estão',txt:'Informe a altura da vara, a distância da vara até a boca de cena, onde o artista fica e a largura do palco que precisa de luz. Pode ser no olho, a aferição corrige depois.'},
+  {aba:'montar',alvo:'kAlvo',tit:'Que luz a foto pede',txt:'Na dúvida, deixe 5600 K, que é luz de dia e o padrão de TV, e 1200 lux. Se o fotógrafo passar abertura, obturador e ISO, abra "Não sei quantos lux" que o app calcula.'},
+  {aba:'montar',alvo:'resultBox',tit:'Confira o ponto de partida',txt:'Aqui estão o zoom, a intensidade e a cor de cada aparelho. Se aparecer algum aviso embaixo, leia antes de seguir.'},
+  {aba:'aparelhos',alvo:'perfilBox',tit:'Medir a cor do aparelho',txt:()=>plano&&temPerfil(plano.f)?'Este modelo já tem a cor medida. Pode seguir.':'Recomendado: acenda um aparelho só e siga a tabela, medindo cada linha com o celular. Leva uns 10 minutos e vale para todos desse modelo. Se não der tempo, toque em Próximo e o app usa uma estimativa.'},
+  {aba:'mesa',alvo:'btnZip',tit:'Mande para a mesa',txt:'Baixe o plugin, descompacte no pendrive, importe na grandMA2 e rode. Ele grava os presets de cor e intensidade nos aparelhos.'},
+  {aba:'aferir',alvo:'tabPontos',tit:'Meça no palco',txt:'Com o preset aceso, toque em Medir no Foco 1. O app pergunta o que você tem para medir (cartão, folha branca ou copinho) e explica onde ficar e como tirar a foto. Verde está certo; amarelo ou vermelho, o app diz quanto mexer.'},
+  {aba:'aferir',alvo:'btnAplicar',tit:'Corrija e meça de novo',txt:'Toque em Aplicar correções, rode o plugin outra vez e meça de novo. Quando tudo ficar verde, a luz da foto está pronta.',vai:'Terminar'}];
+let gPasso=store.get('fot.gPasso',0),gLiga=store.get('fot.dicas',true),gMini=false;
+function irAlvo(p){if(!p.aba)return;if($('t-'+p.aba).getAttribute('aria-selected')!=='true')$('t-'+p.aba).click();
+  const el=$(p.alvo);if(!el)return;const box=el.closest('.passo,.cartao,.result,.campo')||el;
+  document.querySelectorAll('.alvoGuia').forEach(x=>x.classList.remove('alvoGuia'));box.classList.add('alvoGuia');
+  setTimeout(()=>box.scrollIntoView({behavior:'smooth',block:'center'}),60)}
+function renderGuia(mover){const on=gLiga;$('guiaBox').hidden=!on;document.body.classList.toggle('comGuia',on&&!gMini);
+  $('btnDicas').setAttribute('aria-pressed',on);$('btnDicas').textContent=on?'Dicas ligadas':'Ligar dicas';
+  if(!on){document.querySelectorAll('.alvoGuia').forEach(x=>x.classList.remove('alvoGuia'));return}
+  const p=PASSOS[gPasso];$('guiaCard').classList.toggle('mini',gMini);
+  $('gConta').textContent=gMini?`Dica: ${p.tit}`:`Passo ${gPasso+1} de ${PASSOS.length}`;$('gMini').textContent=gMini?'Abrir':'Minimizar';
+  $('gBar').style.width=((gPasso+1)/PASSOS.length*100)+'%';$('gTit').textContent=p.tit;$('gTxt').textContent=typeof p.txt==='function'?p.txt():p.txt;
+  $('gVolta').hidden=gPasso===0;$('gVai').textContent=p.vai||'Próximo';if(mover)irAlvo(p)}
+$('gVai').onclick=()=>{if(gPasso===PASSOS.length-1){gLiga=false;gPasso=0;store.set('fot.dicas',false);store.set('fot.gPasso',0);renderGuia();return}
+  gPasso++;store.set('fot.gPasso',gPasso);renderGuia(true)};
+$('gVolta').onclick=()=>{gPasso=Math.max(0,gPasso-1);store.set('fot.gPasso',gPasso);renderGuia(true)};
+$('gMini').onclick=()=>{gMini=!gMini;renderGuia(!gMini)};
+$('gDesliga').onclick=()=>{gLiga=false;store.set('fot.dicas',false);renderGuia()};
+$('btnDicas').onclick=()=>{gLiga=!gLiga;store.set('fot.dicas',gLiga);gMini=false;renderGuia(gLiga)};
+
+/* ---------- início ---------- */
+function fontes(){$('fontes').innerHTML=FABRICA.map(f=>`<span>${f.marca} ${f.modelo}: ${f.url?`<a href="${f.url}" target="_blank" rel="noopener">${f.fonte}</a>`:f.fonte}</span>`).join('')+
+  '<span>Aparelhos sem tabela de lux têm a intensidade estimada pelos lúmens e pelo ângulo do zoom. Aparelhos cadastrados por você usam os dados que você informou. Confira sempre com a aferição.</span>'}
+function atualizarTudo(){preencherSelect();ficha(achar(S.fx));if(!todos().some(f=>f.id===sel))sel=S.fx;renderAparelhos();calcular()}
+fontes();carregarCampos();atualizarTudo();renderGuia(gPasso>0);
+})();
+</script>
+
+</body>
+</html>
