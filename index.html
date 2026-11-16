@@ -196,6 +196,19 @@ body.comGuia .app{padding-bottom:calc(260px + var(--barra))}
 .vHist{position:absolute;left:12px;bottom:130px;background:rgba(0,0,0,.55);border-radius:8px;pointer-events:none}
 .vAlvo{position:absolute;left:50%;top:50%;width:min(36vw,36vh);aspect-ratio:1;transform:translate(-50%,-50%);border-radius:50%;border:4px solid var(--luz);box-shadow:0 0 0 2000px rgba(0,0,0,.35)}
 .vivo.pronto .vAlvo{border-color:var(--ok)}
+/* mira de precisão: cruz fina com vão no centro e ponto, como o visor de uma câmera */
+.spot::before,.vAlvo::before{content:"";position:absolute;inset:0;border-radius:50%;pointer-events:none;
+ background:
+  linear-gradient(var(--luz),var(--luz)) 50% 0/1.5px 38% no-repeat,
+  linear-gradient(var(--luz),var(--luz)) 50% 100%/1.5px 38% no-repeat,
+  linear-gradient(var(--luz),var(--luz)) 0 50%/38% 1.5px no-repeat,
+  linear-gradient(var(--luz),var(--luz)) 100% 50%/38% 1.5px no-repeat}
+.spot::after,.vAlvo::after{content:"";position:absolute;left:50%;top:50%;width:5px;height:5px;margin:-2.5px 0 0 -2.5px;border-radius:50%;background:var(--luz);box-shadow:0 0 0 1px rgba(0,0,0,.6);pointer-events:none}
+.vivo.pronto .vAlvo::before{background:
+  linear-gradient(var(--ok),var(--ok)) 50% 0/1.5px 38% no-repeat,linear-gradient(var(--ok),var(--ok)) 50% 100%/1.5px 38% no-repeat,
+  linear-gradient(var(--ok),var(--ok)) 0 50%/38% 1.5px no-repeat,linear-gradient(var(--ok),var(--ok)) 100% 50%/38% 1.5px no-repeat}
+.vivo.pronto .vAlvo::after{background:var(--ok)}
+
 .vTopo{position:relative;display:flex;justify-content:space-between;padding:12px}.vTopo button{min-height:40px;background:rgba(22,20,29,.8)}
 .vConta{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);font-family:var(--f-leitura);font-size:7rem;color:#fff;text-shadow:0 2px 16px #000;pointer-events:none}
 .vBase{position:absolute;left:0;right:0;bottom:0;padding:16px 16px 24px;background:linear-gradient(transparent,rgba(0,0,0,.85) 30%);display:flex;flex-direction:column;gap:10px;align-items:center;text-align:center}
